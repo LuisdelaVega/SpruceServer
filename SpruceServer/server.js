@@ -1,5 +1,8 @@
 // Express is the web framework 
 var express = require('express');
+var fs = require('fs');
+var item = require("./objects/item.js");
+
 var app = express();
 var allowCrossDomain = function(req, res, next) {
     res.header('Access-Control-Allow-Origin', '*');
@@ -37,34 +40,46 @@ var itemList;
 // REST Operation - HTTP GET to read all cars
 app.get('/SpruceTestServer/:category', function(req, res) {
 	console.log("GET " + req.url);
+	var response;
+	var index = -1;
 		
-	/*
-	if(req.params.id == "cars")
-			var response = {"cars" : carList};
-		else if(req.params.id == "books")
-			var response = {"books" : bookList};*/
-	
-	//else{
-		var item = require("./objects/item.js");
-		var Item = item.Item;
-
-		itemList = new Array(
-			new Item(req.params.category+0, "Category1", 100, "Description1", null, "Model1", "Brand1", "Dimensions1", "StartingDate1", "DateBought1", "Buyer1", "Seller1", "Views1"),
-			new Item(req.params.category+1, "Category2", 200, "Description2", null, "Model2", "Brand2", "Dimensions2", "StartingDate2", "DateBought2", "Buyer2", "Seller2", "Views2"),
-			new Item(req.params.category+2, "Category3", 300, "Description3", null, "Model3", "Brand3", "Dimensions3", "StartingDate3", "DateBought3", "Buyer3", "Seller3", "Views3"),
-			new Item(req.params.category+3, "Category4", 400, "Description4", null, "Model4", "Brand4", "Dimensions4", "StartingDate4", "DateBought4", "Buyer4", "Seller4", "Views4"),
-			new Item(req.params.category+4, "Category5", 500, "Description5", null, "Model5", "Brand5", "Dimensions5", "StartingDate5", "DateBought5", "Buyer5", "Seller5", "Views5")	
-		);
+	switch(req.params.category){
+		case "books":
+			index = 0;
+			break;
+		case "electronics":
+			index = 1;
+			break;
+		case "computers":
+			index = 2;
+			break;
+		case "clothing":
+			index = 3;
+			break;
+		case "shoes":
+			index = 4;
+			break;
+		case "sports":
+			index = 5;
+			break;
+		default:
+			console.log("Error nigga!");
+			return;
+	}
 		
-		var itemNextId = 0;
-		for (var i=0; i < itemList.length;++i){
-			itemList[i].id = itemNextId++;
+	var file = "items.json";
+		
+	fs.readFile(file, 'utf8', function(err, data){
+		if(err){
+			console.log('Error: '+err);
 		}
-						
-		var response = {"items" : itemList};
-	//}
-	
-  	res.json(response);
+		else{
+			data = JSON.parse(data);
+			
+			response = {"items" : data[index]};
+			res.json(response);
+		}
+	});
 });
 
 // REST Operation - HTTP GET to read a car based on its id

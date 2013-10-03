@@ -82,6 +82,35 @@ app.get('/SpruceTestServer/:category', function(req, res) {
 	});
 });
 
+//Get My Spruce items for bidding, selling, and history
+app.get('/SpruceTestServer/mySpruce/:select', function(req, res) {
+	console.log("GET " + req.url);
+	var response;
+	var index = -1;
+	if(req.params.select=='bidding'){
+		index=0;		
+	}
+	else if(req.params.select=='selling'){
+		index=1;			
+	}
+	else{
+		index=2;
+	}
+	var file = "items.json";
+		
+	fs.readFile(file, 'utf8', function(err, data){
+		if(err){
+			console.log('Error: '+err);
+		}
+		else{
+			data = JSON.parse(data);
+			
+			response = {"items" : data[index]};
+			res.json(response);
+		}
+	});
+});
+
 // REST Operation - HTTP GET to read a car based on its id
 app.get('/SpruceTestServer/:category/:id', function(req, res) {
 	var category = req.params.category;

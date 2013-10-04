@@ -82,7 +82,6 @@ app.get('/SpruceTestServer/:category', function(req, res) {
 	});
 });
 
-//Get My Spruce items for bidding, selling, and history
 app.get('/SpruceTestServer/mySpruce/:select', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
@@ -106,6 +105,29 @@ app.get('/SpruceTestServer/mySpruce/:select', function(req, res) {
 			data = JSON.parse(data);
 			
 			response = {"items" : data[index]};
+			res.json(response);
+		}
+	});
+});
+
+app.get('/SpruceTestServer/myadmintools/:id', function(req, res) {
+	console.log("GET " + req.url);
+	var response;
+	var id=req.params.id;
+	var file = id+".json";
+		
+	fs.readFile(file, 'utf8', function(err, data){
+		if(err){
+			console.log('Error: '+err);
+		}
+		else{
+			data = JSON.parse(data);
+			if(id=='category'){
+				response = {"category": data};	
+			}
+			else if(id=='users'){
+				response = {"users": data};
+			}
 			res.json(response);
 		}
 	});

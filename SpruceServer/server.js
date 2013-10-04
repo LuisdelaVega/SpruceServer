@@ -110,6 +110,83 @@ app.get('/SpruceTestServer/mySpruce/:select', function(req, res) {
 	});
 });
 
+app.get('/SpruceTestServer/product/:category/:id', function(req, res) {
+	console.log("GET " + req.url);
+	var response;
+	var id=req.params.id;
+	var category = req.params.category;
+	var file = "items.json";
+		
+	fs.readFile(file, 'utf8', function(err, data){
+		if(err){
+			console.log('Error: '+err);
+		}
+		else{
+			data = JSON.parse(data);
+			if(category<data.length){
+				if(id<data[category].length){
+					response = {"product" : data[category][id]};
+				}
+				else{
+					console.log("Error: product not found")
+				}
+			}
+			else{
+					console.log("Error: category not found")
+			}
+			res.json(response);
+		}
+	});
+});
+
+app.get('/SpruceTestServer/seller-product/:category/:id', function(req, res) {
+	console.log("GET " + req.url);
+	var response;
+	var id=req.params.id;
+	var category = req.params.category;
+	var file = "items.json";
+		
+	fs.readFile(file, 'utf8', function(err, data){
+		if(err){
+			console.log('Error: '+err);
+		}
+		else{
+			data = JSON.parse(data);
+			if(category<data.length){
+				if(id<data[category].length){
+					response = {"product" : data[category][id]};
+				}
+				else{
+					console.log("Error: product not found")
+				}
+			}
+			else{
+					console.log("Error: category not found")
+			}
+			res.json(response);
+		}
+	});
+});
+
+app.get('/SpruceTestServer/seller-product/:category/:id/bids', function(req, res) {
+	console.log("GET " + req.url);
+	var response;
+	var id=req.params.id;
+	var category = req.params.category;
+	var file = "bids.json";
+		
+	fs.readFile(file, 'utf8', function(err, data){
+		if(err){
+			console.log('Error: '+err);
+		}
+		else{
+			data = JSON.parse(data);
+			response = {"bids" : data};
+			res.json(response);
+		}
+	});
+});
+
 app.get('/SpruceTestServer/myadmintools/:id', function(req, res) {
 	console.log("GET " + req.url);
 	var response;

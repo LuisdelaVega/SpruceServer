@@ -1,0 +1,22 @@
+[
+	{
+		"id":0,
+		"title":"Apu",
+		"price":0.01
+	},
+	{
+		"id":1,
+		"title":"Lee",
+		"price":1.34
+	},
+	{
+		"id":2,
+		"title":"Joe",
+		"price":4.32
+	},
+	{
+		"id":3,
+		"title":"Amy",
+		"price":9999.99
+	}
+]

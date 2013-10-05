@@ -37,7 +37,7 @@ app.use(express.bodyParser());
 
 var itemList;
 
-// REST Operation - HTTP GET to read all cars
+// REST Operation - Info Categories
 app.get('/SpruceTestServer/:category', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
@@ -82,6 +82,7 @@ app.get('/SpruceTestServer/:category', function(req, res) {
 	});
 });
 
+//REST My Spruce
 app.get('/SpruceTestServer/mySpruce/:select', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
@@ -110,6 +111,7 @@ app.get('/SpruceTestServer/mySpruce/:select', function(req, res) {
 	});
 });
 
+//REST Get an item for the buyer
 app.get('/SpruceTestServer/product/:category/:id', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
@@ -139,6 +141,7 @@ app.get('/SpruceTestServer/product/:category/:id', function(req, res) {
 	});
 });
 
+//REST get an item view for the seller
 app.get('/SpruceTestServer/seller-product/:category/:id', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
@@ -168,6 +171,7 @@ app.get('/SpruceTestServer/seller-product/:category/:id', function(req, res) {
 	});
 });
 
+//REST Bids for item
 app.get('/SpruceTestServer/seller-product/:category/:id/bids', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
@@ -187,6 +191,7 @@ app.get('/SpruceTestServer/seller-product/:category/:id/bids', function(req, res
 	});
 });
 
+//REST for admin tools, user and category
 app.get('/SpruceTestServer/myadmintools/:id', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
@@ -205,6 +210,69 @@ app.get('/SpruceTestServer/myadmintools/:id', function(req, res) {
 			else if(id=='users'){
 				response = {"users": data};
 			}
+			res.json(response);
+		}
+	});
+});
+
+//REST for cart
+app.get('/SpruceTestServer/user/cart', function(req, res) {
+	console.log("GET " + req.url);
+	var response;
+	var id=req.params.id;
+	var file = "items.json";
+		
+	fs.readFile(file, 'utf8', function(err, data){
+		if(err){
+			console.log('Error: '+err);
+		}
+		else{
+			data = JSON.parse(data);
+			var result=[];
+			for(var i=0;i<data[2].length;i++){
+				result.push(data[2][i]);
+			}
+			response = {"cart": result};	
+			res.json(response);
+		}
+	});
+});
+
+//REST for user store
+app.get('/SpruceTestServer/user/store', function(req, res) {
+	console.log("GET " + req.url);
+	var response;
+	var file = "items.json";
+		
+	fs.readFile(file, 'utf8', function(err, data){
+		if(err){
+			console.log('Error: '+err);
+		}
+		else{
+			data = JSON.parse(data);
+			var result=[];
+			for(var i=0;i<data[2].length;i++){
+				result.push(data[2][i]);
+			}
+			response = {"items": result};	
+			res.json(response);
+		}
+	});
+});
+
+//REST for user profile
+app.get('/SpruceTestServer/user/profile', function(req, res) {
+	console.log("GET " + req.url);
+	var response;
+	var file = "user.json";
+		
+	fs.readFile(file, 'utf8', function(err, data){
+		if(err){
+			console.log('Error: '+err);
+		}
+		else{
+			data = JSON.parse(data);
+			response = {"user": data[0]};	
 			res.json(response);
 		}
 	});

@@ -82,6 +82,25 @@ app.get('/SpruceTestServer/:category', function(req, res) {
 	});
 });
 
+app.get('/SpruceTestServer/getSubCategories/sub', function(req, res) {
+	console.log("GET " + req.url);
+	var response;
+		
+	var file = "subcategories.json";
+		
+	fs.readFile(file, 'utf8', function(err, data){
+		if(err){
+			console.log('Error: '+err);
+		}
+		else{
+			data = JSON.parse(data);
+			
+			response = {"subcategories" : data};
+			res.json(response);
+		}
+	});
+});
+
 //REST My Spruce
 app.get('/SpruceTestServer/mySpruce/:select', function(req, res) {
 	console.log("GET " + req.url);

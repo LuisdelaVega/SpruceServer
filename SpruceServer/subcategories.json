@@ -1,0 +1,152 @@
+[
+	{
+		"id":0,
+		"title":"Books",
+		"subcategory": false
+	},
+	{
+		"id":1,
+		"title":"Children",
+		"subcategory": true
+	},
+	{
+		"id":2,
+		"title":"Fiction",
+		"subcategory": true
+	},
+	{
+		"id":3,
+		"title":"Technology",
+		"subcategory": true
+	},
+	{
+		"id":4,
+		"title":"Business",
+		"subcategory": true
+	},
+	{
+		"id":5,
+		"title":"Electronics",
+		"subcategory": false
+	},
+	{
+		"id":6,
+		"title":"TV",
+		"subcategory": true
+	},
+	{
+		"id":7,
+		"title":"Audio",
+		"subcategory": true
+	},
+	{
+		"id":8,
+		"title":"Phones",
+		"subcategory": true
+	},
+	{
+		"id":9,
+		"title":"Cameras",
+		"subcategory": true
+	},
+	{
+		"id":10,
+		"title":"Video",
+		"subcategory": true
+	},
+	{
+		"id":11,
+		"title":"Computers",
+		"subcategory": false
+	},
+	{
+		"id":12,
+		"title":"Laptops",
+		"subcategory": true
+	},
+	{
+		"id":13,
+		"title":"Desktops",
+		"subcategory": true
+	},
+	{
+		"id":14,
+		"title":"Tablets",
+		"subcategory": true
+	},
+	{
+		"id":15,
+		"title":"Printers",
+		"subcategory": true
+	},
+	{
+		"id":16,
+		"title":"Clothing",
+		"subcategory": false
+	},
+	{
+		"id":17,
+		"title":"Children",
+		"subcategory": true
+	},
+	{
+		"id":18,
+		"title":"Men",
+		"subcategory": true
+	},
+	{
+		"id":19,
+		"title":"Women",
+		"subcategory": true
+	},
+	{
+		"id":20,
+		"title":"Shoes",
+		"subcategory": false
+	},
+	{
+		"id":21,
+		"title":"Children",
+		"subcategory": true
+	},
+	{
+		"id":22,
+		"title":"Women",
+		"subcategory": true
+	},
+	{
+		"id":23,
+		"title":"Men",
+		"subcategory": true
+	},
+	{
+		"id":24,
+		"title":"Sports",
+		"subcategory": false
+	},
+	{
+		"id":25,
+		"title":"Bicycles",
+		"subcategory": true
+	},
+	{
+		"id":26,
+		"title":"Fishing",
+		"subcategory": true
+	},
+	{
+		"id":27,
+		"title":"Baseball",
+		"subcategory": true
+	},
+	{
+		"id":28,
+		"title":"Golf",
+		"subcategory": true
+	},
+	{
+		"id":29,
+		"title":"Basketball",
+		"subcategory": true
+	}
+]

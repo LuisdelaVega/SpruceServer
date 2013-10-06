@@ -278,6 +278,25 @@ app.get('/SpruceTestServer/user/profile', function(req, res) {
 	});
 });
 
+//REST Home View
+app.get('/SpruceTestServer/Spruce/home/', function(req, res) {
+	console.log("GET " + req.url);
+		
+		var response;
+		var file = "images.json";
+		fs.readFile(file, 'utf8', function(err, data){
+		if(err){
+			console.log('Error: '+err);
+		}
+		else{
+			
+			data = JSON.parse(data);			
+			response = {"images" : data};
+			res.json(response);
+		}
+		});
+});
+
 // REST Operation - HTTP GET to read a car based on its id
 app.get('/SpruceTestServer/:category/:id', function(req, res) {
 	var category = req.params.category;

@@ -63,7 +63,7 @@ app.get('/SpruceTestServer/:category', function(req, res) {
 			index = 5;
 			break;
 		default:
-			console.log("Error nigga!");
+			console.log("Error!");
 			return;
 	}
 		

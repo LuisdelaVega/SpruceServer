@@ -75,6 +75,25 @@
 			"buyer":null,
 			"seller":"Manuel Rodriguez",
 			"views":13
+		},
+		{
+			"id":4,
+			"name":"Harry Potter and the Pisoner of Azkaban",
+			"category":"Business",
+			"parentCategory":"Books",
+			"price":200.50,
+			"description":"Business books are gay",
+			"image":"itshappening.gif",
+			"model":"Paperback",
+			"brand":"No clue",
+			"dimensions":"10x9x3",
+			"startingDate":"10/08/1981 1:32am",
+			"dateBought":null,
+			"restock":false,
+			"amount":1,
+			"buyer":null,
+			"seller":"Manuel Rodriguez",
+			"views":13
 		}
 	],
 	[
@@ -250,6 +269,25 @@
 			"buyer":null,
 			"seller":"Fulano Velez",
 			"views":2
+		},
+		{
+			"id":4,
+			"name":"Desktop",
+			"category":"Desktops",
+			"parentCategory":"Computers",
+			"price":200.50,
+			"description":"Business books are gay",
+			"image":"itshappening.gif",
+			"model":"Paperback",
+			"brand":"No clue",
+			"dimensions":"10x9x3",
+			"startingDate":"10/08/1981 1:32am",
+			"dateBought":null,
+			"restock":false,
+			"amount":1,
+			"buyer":null,
+			"seller":"Manuel Rodriguez",
+			"views":13
 		}
 	],
 	[
@@ -309,6 +347,44 @@
 			"buyer":null,
 			"seller":"Fulano Velez",
 			"views":2
+		},
+		{
+			"id":3,
+			"name":"Shirt",
+			"category":"Children",
+			"parentCategory":"Clothing",
+			"price":200.50,
+			"description":"Business books are gay",
+			"image":"itshappening.gif",
+			"model":"Paperback",
+			"brand":"No clue",
+			"dimensions":"10x9x3",
+			"startingDate":"10/08/1981 1:32am",
+			"dateBought":null,
+			"restock":false,
+			"amount":1,
+			"buyer":null,
+			"seller":"Manuel Rodriguez",
+			"views":13
+		},
+		{
+			"id":4,
+			"name":"Pants",
+			"category":"Women",
+			"parentCategory":"Clothing",
+			"price":200.50,
+			"description":"Business books are gay",
+			"image":"itshappening.gif",
+			"model":"Paperback",
+			"brand":"No clue",
+			"dimensions":"10x9x3",
+			"startingDate":"10/08/1981 1:32am",
+			"dateBought":null,
+			"restock":false,
+			"amount":1,
+			"buyer":null,
+			"seller":"Manuel Rodriguez",
+			"views":13
 		}
 	],
 	[
@@ -368,6 +444,44 @@
 			"buyer":null,
 			"seller":"Fulano Velez",
 			"views":2
+		},
+		{
+			"id":3,
+			"name":"Converse",
+			"category":"Men",
+			"parentCategory":"Shoes",
+			"price":200.50,
+			"description":"Business books are gay",
+			"image":"itshappening.gif",
+			"model":"Paperback",
+			"brand":"No clue",
+			"dimensions":"10x9x3",
+			"startingDate":"10/08/1981 1:32am",
+			"dateBought":null,
+			"restock":false,
+			"amount":1,
+			"buyer":null,
+			"seller":"Manuel Rodriguez",
+			"views":13
+		},
+		{
+			"id":4,
+			"name":"Nike",
+			"category":"Men",
+			"parentCategory":"Shoes",
+			"price":200.50,
+			"description":"Business books are gay",
+			"image":"itshappening.gif",
+			"model":"Paperback",
+			"brand":"No clue",
+			"dimensions":"10x9x3",
+			"startingDate":"10/08/1981 1:32am",
+			"dateBought":null,
+			"restock":false,
+			"amount":1,
+			"buyer":null,
+			"seller":"Manuel Rodriguez",
+			"views":13
 		}
 	],
 	[

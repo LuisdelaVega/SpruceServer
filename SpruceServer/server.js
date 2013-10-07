@@ -185,7 +185,7 @@ app.get('/SpruceServer/getProduct/:category/:id', function(req, res) {
 });
 
 //REST get an item view for the seller
-app.get('/SpruceServer/seller-product/:category/:id', function(req, res) {
+app.get('/SpruceServer/getSellerProduct/:category/:id', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
 	var id=req.params.id;
@@ -271,11 +271,7 @@ app.get('/SpruceTestServer/user/cart', function(req, res) {
 		}
 		else{
 			data = JSON.parse(data);
-			var result=[];
-			for(var i=0;i<data[2].length;i++){
-				result.push(data[2][i]);
-			}
-			response = {"cart": result};	
+			response = {"cart": data[2]};	
 			res.json(response);
 		}
 	});

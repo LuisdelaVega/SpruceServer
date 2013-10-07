@@ -38,28 +38,28 @@ app.use(express.bodyParser());
 var itemList;
 
 // REST Operation - Info Categories
-app.get('/SpruceTestServer/:category', function(req, res) {
+app.get('/SpruceServer/getItemsForCategory/:category', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
 	var index = -1;
 		
 	switch(req.params.category){
-		case "books":
+		case "Books":
 			index = 0;
 			break;
-		case "electronics":
+		case "Electronics":
 			index = 1;
 			break;
-		case "computers":
+		case "Computers":
 			index = 2;
 			break;
-		case "clothing":
+		case "Clothing":
 			index = 3;
 			break;
-		case "shoes":
+		case "Shoes":
 			index = 4;
 			break;
-		case "sports":
+		case "Sports":
 			index = 5;
 			break;
 		default:
@@ -82,7 +82,7 @@ app.get('/SpruceTestServer/:category', function(req, res) {
 	});
 });
 
-app.get('/SpruceTestServer/getSubCategories/sub', function(req, res) {
+app.get('/SpruceServer/getSubCategories', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
 		
@@ -102,7 +102,7 @@ app.get('/SpruceTestServer/getSubCategories/sub', function(req, res) {
 });
 
 //REST My Spruce
-app.get('/SpruceTestServer/mySpruce/:select', function(req, res) {
+app.get('/SpruceServer/mySpruce/:select', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
 	var index = -1;
@@ -131,12 +131,36 @@ app.get('/SpruceTestServer/mySpruce/:select', function(req, res) {
 });
 
 //REST Get an item for the buyer
-app.get('/SpruceTestServer/product/:category/:id', function(req, res) {
+app.get('/SpruceServer/getProduct/:category/:id', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
 	var id=req.params.id;
 	var category = req.params.category;
 	var file = "items.json";
+	
+	switch(category){
+		case "Books":
+			category = 0;
+			break;
+		case "Electronics":
+			category = 1;
+			break;
+		case "Computers":
+			category = 2;
+			break;
+		case "Clothing":
+			category = 3;
+			break;
+		case "Shoes":
+			category = 4;
+			break;
+		case "Sports":
+			category = 5;
+			break;
+		default:
+			console.log("Error!");
+			return;
+	}
 		
 	fs.readFile(file, 'utf8', function(err, data){
 		if(err){
@@ -161,7 +185,7 @@ app.get('/SpruceTestServer/product/:category/:id', function(req, res) {
 });
 
 //REST get an item view for the seller
-app.get('/SpruceTestServer/seller-product/:category/:id', function(req, res) {
+app.get('/SpruceServer/seller-product/:category/:id', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
 	var id=req.params.id;

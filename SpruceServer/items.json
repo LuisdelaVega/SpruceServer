@@ -40,7 +40,7 @@
 			"id":2,
 			"name":"Eclipse",
 			"category":"technology",
-			"price":78.99,
+			"price":98.34,
 			"description":"Technology books are FUN!",
 			"image":"itshappening.gif",
 			"model":"I don't know, hard cover",
@@ -55,10 +55,10 @@
 			"views":13
 		},
 		{
-			"id":2,
+			"id":3,
 			"name":"Breaking Dawn",
 			"category":"business",
-			"price":78.99,
+			"price":200.50,
 			"description":"Business books are gay",
 			"image":"itshappening.gif",
 			"model":"Paperback",

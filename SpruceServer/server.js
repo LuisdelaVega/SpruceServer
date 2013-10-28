@@ -2,6 +2,9 @@
 var express = require('express');
 var fs = require('fs');
 var item = require("./objects/item.js");
+var pg = require('pg');
+
+var conString = "pg://postgres:post123@localhost:5432/SpruceDB";
 
 var app = express();
 var allowCrossDomain = function(req, res, next) {
@@ -39,47 +42,63 @@ var itemList;
 
 // REST Operation - Info Categories
 app.get('/SpruceServer/getItemsForCategory/:category', function(req, res) {
+	/*
 	console.log("GET " + req.url);
-	var response;
-	var index = -1;
-		
-	switch(req.params.category){
-		case "Books":
-			index = 0;
-			break;
-		case "Electronics":
-			index = 1;
-			break;
-		case "Computers":
-			index = 2;
-			break;
-		case "Clothing":
-			index = 3;
-			break;
-		case "Shoes":
-			index = 4;
-			break;
-		case "Sports":
-			index = 5;
-			break;
-		default:
-			console.log("Error!");
-			return;
-	}
-		
-	var file = "items.json";
-		
-	fs.readFile(file, 'utf8', function(err, data){
-		if(err){
-			console.log('Error: '+err);
-		}
-		else{
-			data = JSON.parse(data);
+		var response;
+		var index = -1;
 			
-			response = {"items" : data[index]};
-			res.json(response);
+		switch(req.params.category){
+			case "Books":
+				index = 0;
+				break;
+			case "Electronics":
+				index = 1;
+				break;
+			case "Computers":
+				index = 2;
+				break;
+			case "Clothing":
+				index = 3;
+				break;
+			case "Shoes":
+				index = 4;
+				break;
+			case "Sports":
+				index = 5;
+				break;
+			default:
+				console.log("Error!");
+				return;
 		}
+			
+		var file = "items.json";
+			
+		fs.readFile(file, 'utf8', function(err, data){
+			if(err){
+				console.log('Error: '+err);
+			}
+			else{
+				data = JSON.parse(data);
+				
+				response = {"items" : data[index]};
+				res.json(response);
+			}
+		});*/
+	
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query("SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE catid IN (SELECT subcatid FROM subcat WHERE catid = 1)");
+		
+	query.on("row", function (row, result) {
+    	result.addRow(row);
 	});
+	query.on("end", function (result) {
+		var response = {"items" : result.rows};
+		client.end();
+  		res.json(response);
+ 	});
+	
 });
 
 app.get('/SpruceServer/getSubCategories', function(req, res) {

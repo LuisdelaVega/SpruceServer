@@ -58,11 +58,11 @@ app.get('/SpruceServer/getItemsForCategory/:category', function(req, res) {
 	});
 	query0.on("end", function(result){
 		var query = client.query({
-			text: "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE catid IN (SELECT subcatid FROM subcat WHERE catid = $1)",
+			text: "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE amount > 0 AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1)",
 			values: [categoryId]
 		});
 		query.on("row", function (row, result) {
-    	result.addRow(row);
+    		result.addRow(row);
 		});
 		query.on("end", function (result) {
 			var response = {"items" : result.rows};

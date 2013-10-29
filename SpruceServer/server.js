@@ -42,62 +42,34 @@ var itemList;
 
 // REST Operation - Info Categories
 app.get('/SpruceServer/getItemsForCategory/:category', function(req, res) {
-	/*
 	console.log("GET " + req.url);
-		var response;
-		var index = -1;
-			
-		switch(req.params.category){
-			case "Books":
-				index = 0;
-				break;
-			case "Electronics":
-				index = 1;
-				break;
-			case "Computers":
-				index = 2;
-				break;
-			case "Clothing":
-				index = 3;
-				break;
-			case "Shoes":
-				index = 4;
-				break;
-			case "Sports":
-				index = 5;
-				break;
-			default:
-				console.log("Error!");
-				return;
-		}
-			
-		var file = "items.json";
-			
-		fs.readFile(file, 'utf8', function(err, data){
-			if(err){
-				console.log('Error: '+err);
-			}
-			else{
-				data = JSON.parse(data);
-				
-				response = {"items" : data[index]};
-				res.json(response);
-			}
-		});*/
 	
 	var client = new pg.Client(conString);
 	client.connect();
-
-	var query = client.query("SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE catid IN (SELECT subcatid FROM subcat WHERE catid = 1)");
-		
-	query.on("row", function (row, result) {
-    	result.addRow(row);
+	
+	var categoryId = -1;
+	
+	var query0 = client.query({
+		text: "SELECT catid FROM category WHERE catname = $1",
+		values: [req.params.category]
 	});
-	query.on("end", function (result) {
-		var response = {"items" : result.rows};
-		client.end();
-  		res.json(response);
- 	});
+	query0.on("row", function (row, result) {
+		categoryId = row.catid;
+	});
+	query0.on("end", function(result){
+		var query = client.query({
+			text: "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE catid IN (SELECT subcatid FROM subcat WHERE catid = $1)",
+			values: [categoryId]
+		});
+		query.on("row", function (row, result) {
+    	result.addRow(row);
+		});
+		query.on("end", function (result) {
+			var response = {"items" : result.rows};
+			client.end();
+  			res.json(response);
+ 		});
+	});
 	
 });
 
@@ -151,56 +123,29 @@ app.get('/SpruceServer/mySpruce/:select', function(req, res) {
 
 //REST Get an item for the buyer
 app.get('/SpruceServer/getProduct/:category/:id', function(req, res) {
-	console.log("GET " + req.url);
-	var response;
-	var id=req.params.id;
-	var category = req.params.category;
-	var file = "items.json";
 	
-	switch(category){
-		case "Books":
-			category = 0;
-			break;
-		case "Electronics":
-			category = 1;
-			break;
-		case "Computers":
-			category = 2;
-			break;
-		case "Clothing":
-			category = 3;
-			break;
-		case "Shoes":
-			category = 4;
-			break;
-		case "Sports":
-			category = 5;
-			break;
-		default:
-			console.log("Error!");
-			return;
-	}
-		
-	fs.readFile(file, 'utf8', function(err, data){
-		if(err){
-			console.log('Error: '+err);
-		}
-		else{
-			data = JSON.parse(data);
-			if(category<data.length){
-				if(id<data[category].length){
-					response = {"product" : data[category][id]};
-				}
-				else{
-					console.log("Error: product not found")
-				}
-			}
-			else{
-					console.log("Error: category not found")
-			}
-			res.json(response);
-		}
+	console.log("GET " + req.url);
+	
+	var id=req.params.id;
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var query = client.query({
+		text: "SELECT * FROM item WHERE itemid = $1",
+		values: [id]
 	});
+	query.on("row", function (row, result) {
+    	result.addRow(row);
+    	console.log(id);
+	});
+	query.on("end", function (result) {
+		console.log(result.rows);
+		var response = {"product" : result.rows};
+		client.end();
+  		res.json(response);
+ 	});
+	
 });
 
 //REST get an item view for the seller

@@ -47,16 +47,16 @@ app.get('/SpruceServer/getItemsForCategory/:category', function(req, res) {
 	var client = new pg.Client(conString);
 	client.connect();
 	
-	var categoryId = -1;
+	var categoryId = req.params.category;
 	
-	var query0 = client.query({
-		text: "SELECT catid FROM category WHERE catname = $1",
-		values: [req.params.category]
-	});
-	query0.on("row", function (row, result) {
-		categoryId = row.catid;
-	});
-	query0.on("end", function(result){
+	// var query0 = client.query({
+		// text: "SELECT catid FROM category WHERE catname = $1",
+		// values: [req.params.category]
+	// });
+	// query0.on("row", function (row, result) {
+		// categoryId = row.catid;
+	// });
+	// query0.on("end", function(result){
 		var query = client.query({
 			text: "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE amount > 0 AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1)",
 			values: [categoryId]
@@ -84,7 +84,29 @@ app.get('/SpruceServer/getItemsForCategory/:category', function(req, res) {
   					res.json(response);
 				});
 			}
- 		});
+ 		// });
+	});
+	
+});
+
+app.get('/SpruceServer/getCategoriesForSidePanel', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var categoryId = -1;
+	
+	var query0 = client.query({
+		text: "SELECT category.catid, category.catname FROM subcat, category WHERE category.catid = subcat.catid AND category.catid not in (SELECT subcatid FROM subcat) GROUP BY category.catid ORDER BY category.catid"
+	});
+	query0.on("row", function (row, result) {
+		result.addRow(row);
+	});
+	query0.on("end", function(result){
+		var response = {"categories" : result.rows};
+		client.end();
+  		res.json(response);
 	});
 	
 });

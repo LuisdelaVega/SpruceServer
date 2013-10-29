@@ -319,23 +319,56 @@ app.get('/SpruceServer/user/profile', function(req, res) {
 	});
 });
 
+//REST Popular Now View
+app.get('/SpruceServer/Spruce/PopularNow/', function(req, res) {
+	console.log("GET " +req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "select * from item order by views desc"
+	});
+	
+	
+	query.on("row", function(row, result) {
+			result.addRow(row);
+		});
+
+	query.on("end", function(result) {
+		var response = {
+			"items" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+
+});
+
 //REST Home View
 app.get('/SpruceServer/Spruce/home/', function(req, res) {
-	console.log("GET " + req.url);
-		
-		var response;
-		var file = "images.json";
-		fs.readFile(file, 'utf8', function(err, data){
-		if(err){
-			console.log('Error: '+err);
-		}
-		else{
-			
-			data = JSON.parse(data);			
-			response = {"images" : data};
-			res.json(response);
-		}
+	console.log("GET " +req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "select * from item order by views desc limit 5"
+	});
+	
+	
+	query.on("row", function(row, result) {
+			result.addRow(row);
 		});
+
+	query.on("end", function(result) {
+		var response = {
+			"items" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+
 });
 
 // REST Operation - HTTP GET to read a car based on its id

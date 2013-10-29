@@ -65,9 +65,25 @@ app.get('/SpruceServer/getItemsForCategory/:category', function(req, res) {
     		result.addRow(row);
 		});
 		query.on("end", function (result) {
-			var response = {"items" : result.rows};
-			client.end();
-  			res.json(response);
+			if(result.rows.length > 0){
+				var response = {"items" : result.rows};
+				client.end();
+  				res.json(response);
+			}
+			else{
+				var query1 = client.query({
+					text: "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE amount > 0 AND catid = $1",
+					values: [categoryId]
+				});
+				query1.on("row", function (row, result) {
+    				result.addRow(row);
+				});
+				query1.on("end", function (result){
+					var response = {"items" : result.rows};
+					client.end();
+  					res.json(response);
+				});
+			}
  		});
 	});
 	
@@ -179,7 +195,7 @@ app.get('/SpruceServer/getSellerProduct/:category/:id', function(req, res) {
 });
 
 //REST Bids for item
-app.get('/SpruceTestServer/seller-product/:category/:id/bids', function(req, res) {
+app.get('/SpruceServer/seller-product/:category/:id/bids', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
 	var id=req.params.id;
@@ -199,7 +215,7 @@ app.get('/SpruceTestServer/seller-product/:category/:id/bids', function(req, res
 });
 
 //REST for admin tools, user and category
-app.get('/SpruceTestServer/myadmintools/:id', function(req, res) {
+app.get('/SpruceServer/myadmintools/:id', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
 	var id=req.params.id;
@@ -223,7 +239,7 @@ app.get('/SpruceTestServer/myadmintools/:id', function(req, res) {
 });
 
 //REST for cart
-app.get('/SpruceTestServer/user/cart', function(req, res) {
+app.get('/SpruceServer/user/cart', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
 	var id=req.params.id;
@@ -242,7 +258,7 @@ app.get('/SpruceTestServer/user/cart', function(req, res) {
 });
 
 //REST for user store
-app.get('/SpruceTestServer/user/store', function(req, res) {
+app.get('/SpruceServer/user/store', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
 	var file = "items.json";
@@ -264,7 +280,7 @@ app.get('/SpruceTestServer/user/store', function(req, res) {
 });
 
 //REST for user profile
-app.get('/SpruceTestServer/user/profile', function(req, res) {
+app.get('/SpruceServer/user/profile', function(req, res) {
 	console.log("GET " + req.url);
 	var response;
 	var file = "user.json";
@@ -282,7 +298,7 @@ app.get('/SpruceTestServer/user/profile', function(req, res) {
 });
 
 //REST Home View
-app.get('/SpruceTestServer/Spruce/home/', function(req, res) {
+app.get('/SpruceServer/Spruce/home/', function(req, res) {
 	console.log("GET " + req.url);
 		
 		var response;
@@ -301,7 +317,7 @@ app.get('/SpruceTestServer/Spruce/home/', function(req, res) {
 });
 
 // REST Operation - HTTP GET to read a car based on its id
-app.get('/SpruceTestServer/:category/:id', function(req, res) {
+app.get('/SpruceServer/:category/:id', function(req, res) {
 	var category = req.params.category;
 	var id = req.params.id;
 	console.log("GET "+category+": "+ id);
@@ -332,7 +348,7 @@ app.get('/SpruceTestServer/:category/:id', function(req, res) {
 
 // REST Operation - HTTP PUT to updated a car based on its id
 
-app.put('/SpruceTestServer/:category/:id', function(req, res) {
+app.put('/SpruceServer/:category/:id', function(req, res) {
 	var category = req.params.category;
 	var id = req.params.id;
 	console.log("PUT "+category+": "+ id);
@@ -374,7 +390,7 @@ app.put('/SpruceTestServer/:category/:id', function(req, res) {
 
 
 // REST Operation - HTTP DELETE to delete a car based on its id
-app.del('/SpruceTestServer/:category/:id', function(req, res) {
+app.del('/SpruceServer/:category/:id', function(req, res) {
 	var category = req.params.category;
 	var id = req.params.id;
 	console.log("DELETE "+category+": "+ id);
@@ -404,7 +420,7 @@ app.del('/SpruceTestServer/:category/:id', function(req, res) {
 });
 
 // REST Operation - HTTP POST to add a new a car
-app.post('/SpruceTestServer/:category', function(req, res) {
+app.post('/SpruceServer/:category', function(req, res) {
 	var category = req.params.category;
 	console.log("POST");
 

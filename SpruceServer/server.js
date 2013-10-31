@@ -41,52 +41,65 @@ app.use(express.bodyParser());
 var itemList;
 
 // REST Operation - Info Categories
-app.get('/SpruceServer/getItemsForCategory/:category', function(req, res) {
+app.get('/SpruceServer/getItemsForCategory/:category/:orderby/:offset', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
 	var categoryId = req.params.category;
-	
-	// var query0 = client.query({
-		// text: "SELECT catid FROM category WHERE catname = $1",
-		// values: [req.params.category]
-	// });
-	// query0.on("row", function (row, result) {
-		// categoryId = row.catid;
-	// });
-	// query0.on("end", function(result){
-		var query = client.query({
-			text: "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE amount > 0 AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1)",
-			values: [categoryId]
+	var offset = req.params.offset;
+	var orderby = req.params.orderby.split("-");
+	var query;
+	if (orderby[0] == "none") {
+		query = client.query({
+		text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE amount > 0 AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1 offset $2)",
+		values : [categoryId,offset]
 		});
-		query.on("row", function (row, result) {
-    		result.addRow(row);
+	} 
+	else {
+		query = client.query({
+		text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE amount > 0 AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1) ORDER BY "+orderby[0]+" "+orderby[1]+" OFFSET $2",
+		values : [categoryId,offset]
 		});
-		query.on("end", function (result) {
-			if(result.rows.length > 0){
-				var response = {"items" : result.rows};
-				client.end();
-  				res.json(response);
-			}
-			else{
-				var query1 = client.query({
-					text: "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE amount > 0 AND catid = $1",
-					values: [categoryId]
-				});
-				query1.on("row", function (row, result) {
-    				result.addRow(row);
-				});
-				query1.on("end", function (result){
-					var response = {"items" : result.rows};
-					client.end();
-  					res.json(response);
-				});
-			}
- 		// });
+	}
+	query.on("row", function(row, result) {
+		result.addRow(row);
 	});
-	
+	query.on("end", function(result) {
+		if (result.rows.length > 0) {
+			var response = {
+				"items" : result.rows
+			};
+			//result.rows[0]['hey']='hi'
+			client.end();
+			res.json(response);
+		} 
+		else {
+			var query1;
+			if (orderby[0] == "none") {
+				query1 = client.query({
+					text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE amount > 0 AND catid = $1 OFFSET $2",
+					values : [categoryId,offset]
+				});
+			} 
+			else {
+				query1 = client.query({
+					text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE amount > 0 AND catid = $1 ORDER BY "+orderby[0]+" "+orderby[1]+" OFFSET $2",
+					values : [categoryId,offset]
+				});
+			}
+			query1.on("row", function(row, result) {
+				result.addRow(row);
+			});
+			query1.on("end", function(result) {
+				var response = {
+					"items" : result.rows
+				};
+				client.end();
+				res.json(response);
+			});
+		}
+	});
 });
 
 app.get('/SpruceServer/getSubCategoryListPopup/:category', function(req, res) {

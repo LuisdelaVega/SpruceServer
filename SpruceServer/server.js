@@ -196,29 +196,41 @@ app.get('/SpruceServer/mySpruce/:select', function(req, res) {
 
 //REST Get an item for the buyer
 app.get('/SpruceServer/getProduct/:category/:id', function(req, res) {
-	
+
 	console.log("GET " + req.url);
-	
-	var id=req.params.id;
-	
+
+	var id = req.params.id;
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var query = client.query({
-		text: "SELECT * FROM item WHERE itemid = $1",
-		values: [id]
+		text : "SELECT * FROM item WHERE itemid = $1",
+		values : [id]
 	});
-	query.on("row", function (row, result) {
-    	result.addRow(row);
-    	console.log(id);
+	query.on("row", function(row, result) {
+		result.addRow(row);
+		console.log(id);
 	});
-	query.on("end", function (result) {
+	query.on("end", function(result) {
 		console.log(result.rows);
-		var response = {"product" : result.rows};
-		client.end();
-  		res.json(response);
- 	});
-	
+		var query1 = client.query({
+			text : "select bidevent.* from item natural join bidevent natural join participates where itemid=$1",
+			values : [result.rows[0].itemid]
+		});
+		query1.on("row", function(row2, result2) {
+			result.rows[0]['currentbidprice'] = row2.currentbidprice;
+			result.rows[0]['bideventdate'] = row2.bideventdate;
+		});
+		query1.on("end", function(row, result2) {
+			var response = {
+				"product" : result.rows
+			};
+			client.end();
+			res.json(response);
+		});
+	});
+
 });
 
 //REST get an item view for the seller

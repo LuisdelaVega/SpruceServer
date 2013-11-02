@@ -122,6 +122,49 @@ app.put('/SpruceServer/authenticate2', function(req, res) {
  	});
 });
 
+app.put('/SpruceServer/signup', function(req, res){
+	console.log("PUT " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var username = req.body.username;
+	var fname = req.body.fname;
+	var lname = req.body.lname;
+	var email = req.body.email;
+	var password = req.body.password;
+	var phone = req.body.phone;
+	var photo = req.body.photo;
+	var rating = req.body.rating;
+	var slt = req.body.slt;
+	
+	console.log(username);
+	console.log(fname);
+	console.log(lname);
+	console.log(email);
+	console.log(password);
+	console.log(phone);
+	console.log(photo);
+	console.log(slt);
+	console.log(rating);
+	
+	var query = client.query({
+		text: "INSERT INTO account VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9)",
+		values: [fname, lname, username, password, rating, photo, phone, email, slt]
+	});
+	query.on("end", function (result) {
+		if(result.rows.length > 0){	
+			// var response = ;
+			client.end();
+  			res.json(true);
+  		}
+  		else{
+  			client.end();
+  		}
+ 	});
+	
+});
+
 // REST Operation - Info Categories
 app.get('/SpruceServer/getItemsForCategory/:category/:orderby/:offset', function(req, res) {
 	console.log("GET " + req.url);

@@ -323,7 +323,7 @@ app.get('/SpruceServer/mySpruce/:select', function(req, res) {
 });
 
 //REST Get an item for the buyer
-app.get('/SpruceServer/getProduct/:category/:id', function(req, res) {
+app.get('/SpruceServer/getProduct/:id', function(req, res) {
 
 	console.log("GET " + req.url);
 
@@ -333,7 +333,7 @@ app.get('/SpruceServer/getProduct/:category/:id', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM item WHERE itemid = $1",
+		text : "SELECT item.*,accusername,accrating,accpassword FROM item NATURAL JOIN sells NATURAL JOIN account WHERE itemid = $1",
 		values : [id]
 	});
 	query.on("row", function(row, result) {
@@ -361,53 +361,24 @@ app.get('/SpruceServer/getProduct/:category/:id', function(req, res) {
 
 });
 
-//REST get an item view for the seller
-app.get('/SpruceServer/getSellerProduct/:category/:id', function(req, res) {
-	console.log("GET " + req.url);
-	var response;
-	var id=req.params.id;
-	var category = req.params.category;
-	var file = "items.json";
-		
-	fs.readFile(file, 'utf8', function(err, data){
-		if(err){
-			console.log('Error: '+err);
-		}
-		else{
-			data = JSON.parse(data);
-			if(category<data.length){
-				if(id<data[category].length){
-					response = {"product" : data[category][id]};
-				}
-				else{
-					console.log("Error: product not found");
-				}
-			}
-			else{
-					console.log("Error: category not found");
-			}
-			res.json(response);
-		}
-	});
-});
-
 //REST Bids for item
-app.get('/SpruceServer/seller-product/:category/:id/bids', function(req, res) {
+app.get('/SpruceServer/seller-product-bids/:id', function(req, res) {
 	console.log("GET " + req.url);
-	var response;
-	var id=req.params.id;
-	var category = req.params.category;
-	var file = "bids.json";
-		
-	fs.readFile(file, 'utf8', function(err, data){
-		if(err){
-			console.log('Error: '+err);
-		}
-		else{
-			data = JSON.parse(data);
-			response = {"bids" : data};
-			res.json(response);
-		}
+	var client = new pg.Client(conString);
+	client.connect();
+	var query0 = client.query({
+		text : "SELECT accusername,bidprice FROM item NATURAL JOIN participates NATURAL JOIN bidevent NATURAL JOIN onevent NATURAL JOIN bid NATURAL JOIN places NATURAL JOIN account WHERE itemid=$1 ORDER BY bidprice desc",
+		values : [req.params.id],
+	});
+	query0.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query0.on("end", function(result) {
+		var response = {
+			"bids" : result.rows
+		};
+		client.end();
+		res.json(response);
 	});
 });
 
@@ -444,8 +415,8 @@ app.put('/SpruceServer/mycart', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text: "SELECT item.* FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
-		values: [req.body.acc]
+		text : "SELECT item.*,quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
+		values : [req.body.acc]
 	});
 	query.on("row", function (row, result) {
    		result.addRow(row);

@@ -1,12 +1,36 @@
 // Express is the web framework 
 var express = require('express');
+var store = new express.session.MemoryStore;
+
+var app = express();
+app.configure(function() {
+	app.use(express.bodyParser());
+	app.use(express.errorHandler());
+	app.use(express.cookieParser());
+  	app.use(express.session({
+    	secret: 'yoursecret',
+    	cookie: {
+      		path: '/',
+      		domain: '127.0.0.1:8020',
+      		maxAge: 1000 * 60 * 24 // 24 hours
+    	}
+}));
+	app.use(function(req, res, next) {
+		res.header('Access-Control-Allow-Credentials', true);
+		res.header('Access-Control-Allow-Origin',      '*');
+		res.header('Access-Control-Allow-Methods',     'GET,PUT,POST,DELETE');
+		res.header('Access-Control-Allow-Headers',     'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept');
+		next();
+	});
+});
+
+
 var fs = require('fs');
 var item = require("./objects/item.js");
 var pg = require('pg');
 
 var conString = "pg://postgres:post123@localhost:5432/SpruceDB";
 
-var app = express();
 var allowCrossDomain = function(req, res, next) {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
@@ -21,13 +45,6 @@ var allowCrossDomain = function(req, res, next) {
     }
 };
 
-app.configure(function () {
-  app.use(allowCrossDomain);
-});
-
-
-app.use(express.bodyParser());
-
 // REST Operations
 // Idea: Data is created, read, updated, or deleted through a URL that 
 // identifies the resource to be created, read, updated, or deleted.
@@ -38,14 +55,81 @@ app.use(express.bodyParser());
 // c) PUT - Update an individual object, or collection  (Database update operation)
 // d) DELETE - Remove an individual object, or collection (Database delete operation)
 
-var itemList;
+
+app.put('/SpruceServer/authenticate1', function(req, res) {
+	console.log("PUT " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var username = req.body.username;
+	console.log(username);
+	
+	var query = client.query({
+		text: "SELECT accslt FROM account WHERE accusername = $1",
+		values: [username]
+	});
+	query.on("row", function (row, result) {
+		console.log(row.accusername);
+    	result.addRow(row);
+	});
+	query.on("end", function (result) {
+		if(result.rows.length > 0){	
+			console.log(result.rows);
+			// req.session.accid = result.rows[0].accid;
+			// console.log("Session for: "+req.session.accid);
+			var response = {"acc" : result.rows};
+			client.end();
+  			res.json(response);
+  		}
+  		else{
+  			client.end();
+  		}
+ 	});
+});
+
+app.put('/SpruceServer/authenticate2', function(req, res) {
+	console.log("PUT " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var username = req.body.username;
+	console.log(username);
+	var password = req.body.hash;
+	console.log(password);
+	
+	var query = client.query({
+		text: "SELECT accpassword FROM account WHERE accusername = $1 AND accpassword = $2",
+		values: [username, password]
+	});
+	query.on("row", function (row, result) {
+		console.log(row.accusername);
+    	result.addRow(row);
+	});
+	query.on("end", function (result) {
+		if(result.rows.length > 0){	
+			console.log(result.rows);
+			// req.session.accid = result.rows[0].accid;
+			// console.log("Session for: "+req.session.accid);
+			var response = {"acc" : result.rows};
+			client.end();
+  			res.json(response);
+  		}
+  		else{
+  			client.end();
+  		}
+ 	});
+});
 
 // REST Operation - Info Categories
 app.get('/SpruceServer/getItemsForCategory/:category/:orderby/:offset', function(req, res) {
 	console.log("GET " + req.url);
-
+	console.log("Account: "+req.session.accid);
+	
 	var client = new pg.Client(conString);
 	client.connect();
+	
 	var categoryId = req.params.category;
 	var offset = req.params.offset;
 	var orderby = req.params.orderby.split("-");
@@ -100,6 +184,7 @@ app.get('/SpruceServer/getItemsForCategory/:category/:orderby/:offset', function
 			});
 		}
 	});
+	
 });
 
 app.get('/SpruceServer/getSubCategoryListPopup/:category', function(req, res) {
@@ -308,22 +393,26 @@ app.get('/SpruceServer/myadmintools/:id', function(req, res) {
 });
 
 //REST for cart
-app.get('/SpruceServer/user/cart', function(req, res) {
+app.put('/SpruceServer/mycart', function(req, res) {
 	console.log("GET " + req.url);
-	var response;
-	var id=req.params.id;
-	var file = "items.json";
-		
-	fs.readFile(file, 'utf8', function(err, data){
-		if(err){
-			console.log('Error: '+err);
-		}
-		else{
-			data = JSON.parse(data);
-			response = {"cart": data[2]};	
-			res.json(response);
-		}
+	console.log("Cart for account: "+req.body.acc);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text: "SELECT item.* FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
+		values: [req.body.acc]
 	});
+	query.on("row", function (row, result) {
+   		result.addRow(row);
+	});
+	query.on("end", function (result){
+		var response = {"cart" : result.rows};
+		client.end();
+ 		res.json(response);
+	});
+		
 });
 
 //REST for user store
@@ -374,7 +463,7 @@ app.get('/SpruceServer/Spruce/PopularNow/', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "select * from item order by views desc"
+		text : "SELECT * FROM item WHERE amount > 0 ORDER BY views DESC"
 	});
 	
 	
@@ -393,14 +482,14 @@ app.get('/SpruceServer/Spruce/PopularNow/', function(req, res) {
 });
 
 //REST Home View
-app.get('/SpruceServer/Spruce/home/', function(req, res) {
+app.get('/SpruceServer/home/', function(req, res) {
 	console.log("GET " +req.url);
 
 	var client = new pg.Client(conString);
 	client.connect();
 
 	var query = client.query({
-		text : "select * from item order by views desc limit 5"
+		text : "SELECT * FROM item ORDER BY views DESC LIMIT 5"
 	});
 	
 	
@@ -418,150 +507,6 @@ app.get('/SpruceServer/Spruce/home/', function(req, res) {
 
 });
 
-// REST Operation - HTTP GET to read a car based on its id
-app.get('/SpruceServer/:category/:id', function(req, res) {
-	var category = req.params.category;
-	var id = req.params.id;
-	console.log("GET "+category+": "+ id);
-
-	if ((id < 0) || (id >= itemList.length)){
-		// not found
-		res.statusCode = 404;
-		res.send("Item not found.");
-	}
-	else {
-		var target = -1;
-		for (var i=0; i < itemList.length; ++i){
-			if (itemList[i].id == id){
-				target = i;
-				break;	
-			}
-		}
-		if (target == -1){
-			res.statusCode = 404;
-			res.send("Item not found.");
-		}
-		else {
-			var response = {"item" : itemList[target]};
-  			res.json(response);	
-  		}	
-	}
-});
-
-// REST Operation - HTTP PUT to updated a car based on its id
-
-app.put('/SpruceServer/:category/:id', function(req, res) {
-	var category = req.params.category;
-	var id = req.params.id;
-	console.log("PUT "+category+": "+ id);
-
-	if ((id < 0) || (id >= itemList.length)){
-		// not found
-		res.statusCode = 404;
-		res.send("Item not found.");
-	}
-	else if(!req.body.hasOwnProperty('make') || !req.body.hasOwnProperty('model')
-  	|| !req.body.hasOwnProperty('year') || !req.body.hasOwnProperty('price') || !req.body.hasOwnProperty('description')) {
-    	res.statusCode = 400;
-    	return res.send('Error: Missing fields for car.');
-  	}
-	else {
-		var target = -1;
-		for (var i=0; i < itemList.length; ++i){
-			if (itemList[i].id == id){
-				target = i;
-				break;	
-			}
-		}
-		if (target == -1){
-			res.statusCode = 404;
-			res.send("Car not found.");			
-		}	
-		else {
-			var theItem= itemList[target];
-			theItem.make = req.body.make;
-			theItem.model = req.body.model;
-			theItem.year = req.body.year;
-			theItem.price = req.body.price;
-			theItem.description = req.body.description;
-			var response = {"item" : theItem};
-  			res.json(response);		
-  		}
-	}
-});
-
-
-// REST Operation - HTTP DELETE to delete a car based on its id
-app.del('/SpruceServer/:category/:id', function(req, res) {
-	var category = req.params.category;
-	var id = req.params.id;
-	console.log("DELETE "+category+": "+ id);
-
-	if ((id < 0) || (id >= itemList.length)){
-		// not found
-		res.statusCode = 404;
-		res.send("Car not found.");
-	}
-	else {
-		var target = -1;
-		for (var i=0; i < itemList.length; ++i){
-			if (itemList[i].id == id){
-				target = i;
-				break;
-			}
-		}
-		if (target == -1){
-			res.statusCode = 404;
-			res.send("Item not found.");
-		}	
-		else {
-			itemList.splice(target, 1);
-  			res.json(true);
-  		}		
-	}
-});
-
-// REST Operation - HTTP POST to add a new a car
-app.post('/SpruceServer/:category', function(req, res) {
-	var category = req.params.category;
-	console.log("POST");
-
-  	if(!req.body.hasOwnProperty('itemName') || !req.body.hasOwnProperty('price')
-  	|| !req.body.hasOwnProperty('model') || !req.body.hasOwnProperty('brand')
-  	|| !req.body.hasOwnProperty('category') || !req.body.hasOwnProperty('width')
-  	|| !req.body.hasOwnProperty('height') || !req.body.hasOwnProperty('depth')
-  	|| !req.body.hasOwnProperty('description') || !req.body.hasOwnProperty('uploadpicture')) {
-    	res.statusCode = 400;
-    	return res.send('Error: Missing fields for car.');
-  	}
-  	
-  	var currentdate = new Date(); 
-	var datetime = currentdate.getDate() + "/"
-                + (currentdate.getMonth()+1)  + "/" 
-                + currentdate.getFullYear() + " "  
-                + currentdate.getHours() + ":"  
-                + currentdate.getMinutes() + ":" 
-                + currentdate.getSeconds();
-
-  	var newItem = new Item(req.body.name,
-  		req.body.category,
-  		req.body.price,
-  		req.body.description,
-  		req.body.uploadpicture,
-  		req.body.model,
-  		req.body.brand,
-  		req.body.height+"x"+req.body.width+"x"+req.body.depth,
-  		datetime,
-  		null,
-  		null,
-  		"-1",
-  		0);
-  	
-  	console.log("New item: " + JSON.stringify(newItem));
-  	newItem.id = itemList.length;
-  	itemList.push(newItem);
-  	res.json(true);
-});
 
 
 // Server starts running when listen is called.

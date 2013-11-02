@@ -380,11 +380,11 @@ app.get('/SpruceServer/getSellerProduct/:category/:id', function(req, res) {
 					response = {"product" : data[category][id]};
 				}
 				else{
-					console.log("Error: product not found")
+					console.log("Error: product not found");
 				}
 			}
 			else{
-					console.log("Error: category not found")
+					console.log("Error: category not found");
 			}
 			res.json(response);
 		}
@@ -481,20 +481,28 @@ app.get('/SpruceServer/user/store', function(req, res) {
 });
 
 //REST for user profile
-app.get('/SpruceServer/user/profile', function(req, res) {
+app.put('/SpruceServer/userProfile', function(req, res) {
 	console.log("GET " + req.url);
-	var response;
-	var file = "user.json";
 		
-	fs.readFile(file, 'utf8', function(err, data){
-		if(err){
-			console.log('Error: '+err);
-		}
-		else{
-			data = JSON.parse(data);
-			response = {"user": data[0]};	
-			res.json(response);
-		}
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password; 
+
+	var query = client.query({
+		text : "SELECT * FROM account natural join shipsto natural join saddress WHERE accpassword = $1",
+		values: [password]
+	});
+	query.on("row", function(row, result) {
+			result.addRow(row);
+		});
+
+	query.on("end", function(result) {
+		var response = {
+			"user" : result.rows
+		};
+		client.end();
+		res.json(response);
 	});
 });
 

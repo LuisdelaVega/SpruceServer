@@ -341,19 +341,19 @@ app.get('/SpruceServer/getProduct/:id', function(req, res) {
 		console.log(id);
 	});
 	query.on("end", function(result) {
-		console.log(result.rows);
 		var query1 = client.query({
-			text : "select bidevent.* from item natural join bidevent natural join participates where itemid=$1",
+			text : "select bid_event.* from item natural join bid_event natural join participates where itemid=$1",
 			values : [result.rows[0].itemid]
 		});
 		query1.on("row", function(row2, result2) {
 			result.rows[0]['currentbidprice'] = row2.currentbidprice;
 			result.rows[0]['bideventdate'] = row2.bideventdate;
 		});
-		query1.on("end", function(row, result2) {
+		query1.on("end", function(result2) {
 			var response = {
 				"product" : result.rows
 			};
+			console.log(result.rows);
 			client.end();
 			res.json(response);
 		});
@@ -367,7 +367,7 @@ app.get('/SpruceServer/seller-product-bids/:id', function(req, res) {
 	var client = new pg.Client(conString);
 	client.connect();
 	var query0 = client.query({
-		text : "SELECT accusername,bidprice FROM item NATURAL JOIN participates NATURAL JOIN bidevent NATURAL JOIN onevent NATURAL JOIN bid NATURAL JOIN places NATURAL JOIN account WHERE itemid=$1 ORDER BY bidprice desc",
+		text : "SELECT accusername,bidprice FROM item NATURAL JOIN participates NATURAL JOIN bid_event NATURAL JOIN on_event NATURAL JOIN bid NATURAL JOIN places NATURAL JOIN account WHERE itemid=$1 ORDER BY bidprice desc",
 		values : [req.params.id],
 	});
 	query0.on("row", function(row, result) {
@@ -461,7 +461,7 @@ app.put('/SpruceServer/userProfile', function(req, res) {
 	var password = req.body.password; 
 
 	var query = client.query({
-		text : "SELECT * FROM account natural join shipsto natural join saddress WHERE accpassword = $1",
+		text : "SELECT * FROM account natural join ships_to natural join saddress WHERE accpassword = $1",
 		values: [password]
 	});
 	query.on("row", function(row, result) {

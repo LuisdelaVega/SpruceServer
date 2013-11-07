@@ -477,6 +477,138 @@ app.put('/SpruceServer/userProfile', function(req, res) {
 	});
 });
 
+//Use for getting name for general info
+app.put('/SpruceServer/usergeneralinfo', function(req, res) {
+	console.log("GET " + req.url);
+		
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password; 
+
+	var query = client.query({
+		text : "SELECT accfname,acclname,accemail,accphonenum FROM account WHERE accpassword = $1",
+		values: [password]
+	});
+	query.on("row", function(row, result) {
+			result.addRow(row);
+		});
+
+	query.on("end", function(result) {
+		var response = {
+			"user" : result.rows
+		};
+		console.log(response);
+		client.end();
+		res.json(response);
+	});
+});
+
+//Use for getting name for general info
+app.put('/SpruceServer/usercreditcardinfo', function(req, res) {
+	console.log("GET " + req.url);
+		
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password; 
+
+	var query = client.query({
+		text : "SELECT credit_card.*,street,bid FROM account NATURAL JOIN billed natural join credit_card natural join bills_to natural join baddress  WHERE accpassword =$1", 
+		values: [password]
+	});
+	query.on("row", function(row, result) {
+			result.addRow(row);
+		});
+	query.on("end", function(result) {
+		var response = {
+			"creditcard" : result.rows
+		};
+		console.log(response);
+		client.end();
+		res.json(response);
+	});
+});
+
+//Use for getting all shipping address
+app.put('/SpruceServer/usershippinginfo', function(req, res) {
+	console.log("GET " + req.url);
+		
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password; 
+
+	var query = client.query({
+		text : "SELECT saddress.* FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accpassword =$1", 
+		values: [password]
+	});
+	query.on("row", function(row, result) {
+			result.addRow(row);
+		});
+	query.on("end", function(result) {
+		var response = {
+			"address" : result.rows
+		};
+		console.log(response);
+		client.end();
+		res.json(response);
+	});
+});
+
+//Use for getting a shipping address
+app.put('/SpruceServer/usereditshipping/:id', function(req, res) {
+	console.log("GET " + req.url);
+	var id=req.params.id;
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password; 
+
+	var query = client.query({
+		text : "SELECT saddress.* FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accpassword =$1 AND sid = $2", 
+		values: [password,id]
+	});
+	query.on("row", function(row, result) {
+			result.addRow(row);
+		});
+	query.on("end", function(result) {
+		var response = {
+			"address" : result.rows
+		};
+		console.log(response);
+		client.end();
+		res.json(response);
+	});
+});
+
+//Use for getting a billing address
+app.put('/SpruceServer/usereditcreditcard/:id', function(req, res) {
+	console.log("GET " + req.url);
+	var id=req.params.id;
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password; 
+
+	var query = client.query({
+		text : "SELECT baddress.* FROM account NATURAL JOIN billed natural join credit_card natural join bills_to natural join baddress WHERE accpassword =$1 AND cid = $2", 
+		values: [password,id]
+	});
+	query.on("row", function(row, result) {
+			result.addRow(row);
+		});
+	query.on("end", function(result) {
+		var response = {
+			"address" : result.rows
+		};
+		console.log(response);
+		client.end();
+		res.json(response);
+	});
+});
+
+
 //REST Popular Now View
 app.get('/SpruceServer/Spruce/PopularNow/', function(req, res) {
 	console.log("GET " +req.url);

@@ -3,26 +3,27 @@ var express = require('express');
 var store = new express.session.MemoryStore;
 
 var app = express();
-app.configure(function() {
-	app.use(express.bodyParser());
-	app.use(express.errorHandler());
-	app.use(express.cookieParser());
-	app.use(express.session({
-		secret : 'yoursecret',
-		cookie : {
-			path : '/',
-			// domain: '127.0.0.1:8020',
-			maxAge : 1000 * 60 * 24 // 24 hours
-		}
-	}));
-	app.use(function(req, res, next) {
-		res.header('Access-Control-Allow-Credentials', true);
-		res.header('Access-Control-Allow-Origin', '*');
-		res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
-		res.header('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept');
-		next();
-	});
+var allowCrossDomain = function(req, res, next) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+
+    // intercept OPTIONS method
+    if ('OPTIONS' == req.method) {
+      res.send(200);
+    }
+    else {
+      next();
+    }
+};
+
+app.configure(function () {
+  app.use(allowCrossDomain);
 });
+
+
+app.use(express.bodyParser());
+
 
 var fs = require('fs');
 var item = require("./objects/item.js");
@@ -218,20 +219,36 @@ app.put('/SpruceServer/signup', function(req, res) {
 	console.log(slt);
 	console.log(rating);
 
-	var query = client.query({
+	var query = client.query({ // Create the new account
 		text : "INSERT INTO account VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9)",
 		values : [fname, lname, username, password, rating, photo, phone, email, slt]
 	});
 	query.on("end", function(result) {
-		if (result.rows.length > 0) {
-			// var response = ;
-			client.end();
-			res.json(true);
-		} else {
-			client.end();
-		}
+		var query1 = client.query({ // Create the new cart
+			text : "INSERT INTO cart VALUES(DEFAULT)"
+		});
+		query1.on("end", function(result1) {
+			var query2 = client.query({ // Get both new ids
+				text : "SELECT max(accid) as acc, max(cartid) as caid FROM account, cart"
+			});
+			query2.on("row", function(row, result2) {
+						result2.addRow(row);
+			});
+			query2.on("end", function(result2) {
+				var query3 = client.query({ // Set the relationship between the account and its cart
+					text : "insert into belongs_to values($1,$2)",
+					values : [result2.rows[0].acc, result2.rows[0].caid]
+				});
+				query3.on("end", function(result3) {
+					client.end();
+				});
+			});
+		});
 	});
-
+	var response = {
+		"success" : true
+	};
+	res.json(response);
 });
 
 // REST Operation - Info Categories
@@ -608,27 +625,26 @@ app.put('/SpruceServer/userProfile', function(req, res) {
 app.put('/SpruceServer/purchaseHistory', function(req, res) {
 	console.log("GET " + req.url);
 
-	// var client = new pg.Client(conString);
-	// client.connect();
-	//
-	// var password = req.body.password;
-	//
-	// var query = client.query({
-	// text : "SELECT * FROM account natural join ships_to natural join saddress WHERE accpassword = $1",
-	// values : [password]
-	// });
-	// query.on("row", function(row, result) {
-	// result.addRow(row);
-	// });
-	//
-	// query.on("end", function(result) {
-	// var response = {
-	// "user" : result.rows
-	// };
-	// client.end();
-	// res.json(response);
-	// });
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var acc = req.body.acc;
 
+	var query = client.query({
+		text : "SELECT invoice.* FROM account NATURAL JOIN keeps NATURAL JOIN invoice WHERE account.accpassword = $1 ORDER BY invoicedate DESC",
+		values : [acc]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var response = {
+			"invoices" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+	
 });
 
 //REST Popular Now View
@@ -860,16 +876,15 @@ app.put('/SpruceServer/generateInvoice', function(req, res) {
 					query2.on("end", function(result2) {
 						for (var i = 0; i < result.rows.length; i++) {
 							var query3 = client.query({ // Create the relationship between invoice and the items bought
-								text : "INSERT INTO of VALUES($1, $2)",
-								values : [result4.rows[0].invid, result.rows[i].itemid]
+								text : "INSERT INTO of VALUES($1, $2, $3)",
+								values : [result4.rows[0].invid, result.rows[i].itemid, result.rows[i].quantity]
 							});
 							query3.on("row", function(row, result3) {
 								result3.addRow(row);
 							});
 							query3.on("end", function(result3) {
-								// res.json(true);
 								if(i+1 == result.rows.length){
-									res.json(true);
+									client.end();
 								}
 							});
 						}
@@ -879,6 +894,59 @@ app.put('/SpruceServer/generateInvoice', function(req, res) {
 			});
 
 		});
+	});
+	var response = {
+		"success" : true
+	};
+	res.json(response);
+});
+
+//REST for purchase sumary
+app.put('/SpruceServer/purchaseSumary', function(req, res) {
+	console.log("GET " + req.url);
+	console.log("Cart for account: " + req.body.acc);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "SELECT item.*, itemquantity as quantity, max(invoiceid) FROM keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item NATURAL JOIN account WHERE account.accpassword = $1 group by item.itemid, quantity",
+		values : [req.body.acc]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var response = {
+			"items" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+
+});
+
+//REST for purchase sumary
+app.put('/SpruceServer/purchaseSumary/:id', function(req, res) {
+	console.log("GET " + req.url);
+	console.log("Cart for account: " + req.body.acc);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "SELECT item.*, itemquantity as quantity, max(invoiceid) FROM keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item NATURAL JOIN account WHERE account.accpassword = $1 AND invoice.invoiceid = $2 group by item.itemid, quantity",
+		values : [req.body.acc, req.params.id]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var response = {
+			"items" : result.rows
+		};
+		client.end();
+		res.json(response);
 	});
 
 });
@@ -908,7 +976,7 @@ app.get('/', function(req, res) {
 //Search
 app.get('/SpruceServer/searchpage/:parameter', function(req, res) {
 	console.log("GET " + req.url);
-	var parameter = req.params.parameter
+	var parameter = req.params.parameter;
 	var client = new pg.Client(conString);
 	client.connect();
 

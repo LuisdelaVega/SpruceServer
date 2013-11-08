@@ -55,6 +55,29 @@ var allowCrossDomain = function(req, res, next) {
 // d) DELETE - Remove an individual object, or collection (Database delete operation)
 
 
+app.get('/SpruceServer/sellerprofile/:username', function(req, res) {
+	console.log("GET " + req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "SELECT * FROM account natural join ships_to natural join saddress where accusername = $1",
+		values : [req.params.username]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var response = {
+			"sellerprofile" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+
+});
+
 app.put('/SpruceServer/checkout', function(req, res) {
 	console.log("GET " + req.url);
 

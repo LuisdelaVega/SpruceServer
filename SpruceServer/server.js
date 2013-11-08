@@ -347,20 +347,37 @@ app.get('/SpruceServer/getCategoriesForSidePanel', function(req, res) {
 
 app.get('/SpruceServer/getSubCategories', function(req, res) {
 	console.log("GET " + req.url);
-	var response;
-
-	var file = "subcategories.json";
-
-	fs.readFile(file, 'utf8', function(err, data) {
-		if (err) {
-			console.log('Error: ' + err);
-		} else {
-			data = JSON.parse(data);
-
-			response = {
-				"subcategories" : data
-			};
-			res.json(response);
+	var client = new pg.Client(conString);
+	client.connect();
+	var count=0;
+	var count2=0;
+	var query0 = client.query({
+		text : "SELECT category.catid, category.catname FROM subcat, category WHERE category.catid = subcat.catid AND category.catid not in (SELECT subcatid FROM subcat) GROUP BY category.catid ORDER BY category.catid"
+	});
+	query0.on("row", function(row, result) {
+		row['subcat']=new Array();
+		result.addRow(row);
+	});
+	query0.on("end", function(result) {
+		var response = {
+			"categories" : result.rows
+		}
+		for (var i = 0; i < response.categories.length; i++) {
+			var query1 = client.query({
+				text : "SELECT C.catid,C.catname FROM category AS C, subcat AS S WHERE S.subcatid=C.catid AND subcatid NOT IN (SELECT subcatid FROM subcat WHERE subcat.catid <> $1)",
+				values : [response.categories[i].catid],
+			});
+			query1.on("row", function(row, result) {
+				response.categories[count].subcat.push(row);
+			});
+			query1.on("end", function(row, result) {
+				count++
+				if(count == response.categories.length){
+					console.log(response.categories);
+					res.json(response);
+					client.end();
+				}
+			});
 		}
 	});
 });
@@ -886,6 +903,31 @@ app.get('/', function(req, res) {
 		client.end();
 		res.json(response);
 	});
+});
+
+//Search
+app.get('/SpruceServer/searchpage/:parameter', function(req, res) {
+	console.log("GET " + req.url);
+	var parameter = req.params.parameter
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "SELECT * FROM item WHERE itemname ILIKE '%" + parameter + "%'"
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+
+	query.on("end", function(result) {
+		var response = {
+			"items" : result.rows
+		};
+		console.log(response);
+		client.end();
+		res.json(response);
+	});
+
 });
 
 var port = process.env.PORT || 5000;

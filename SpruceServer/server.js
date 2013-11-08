@@ -53,6 +53,32 @@ var allowCrossDomain = function(req, res, next) {
 // c) PUT - Update an individual object, or collection  (Database update operation)
 // d) DELETE - Remove an individual object, or collection (Database delete operation)
 
+
+app.put('/SpruceServer/checkout', function(req, res) {
+	console.log("GET " + req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var password = req.body.password;
+
+	var query = client.query({
+		text : "select street, city, state, country, number from account natural join billed natural join credit_card natural join ships_to natural join saddress WHERE accpassword = $1",
+		values : [password]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+
+	query.on("end", function(result) {
+		var response = {
+			"info" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+});
+
 app.put('/SpruceServer/authenticate1', function(req, res) {
 	console.log("PUT " + req.url);
 

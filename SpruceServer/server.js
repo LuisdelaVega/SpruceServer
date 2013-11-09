@@ -686,32 +686,6 @@ app.put('/SpruceServer/userProfile', function(req, res) {
 	});
 });
 
-//REST for user profile
-app.put('/SpruceServer/userRating', function(req, res) {
-	console.log("GET " + req.url);
-
-	var client = new pg.Client(conString);
-	client.connect();
-
-	var password = req.body.password;
-
-	var query = client.query({
-		text : "SELECT accrating FROM account WHERE accpassword = $1",
-		values : [password]
-	});
-	query.on("row", function(row, result) {
-		result.addRow(row);
-	});
-
-	query.on("end", function(result) {
-		var response = {
-			"user" : result.rows
-		};
-		client.end();
-		res.json(response);
-	});
-});
-
 //REST for purchase history
 app.put('/SpruceServer/purchaseHistory', function(req, res) {
 	console.log("GET " + req.url);

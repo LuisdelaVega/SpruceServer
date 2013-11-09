@@ -336,29 +336,46 @@ app.get('/SpruceServer/getItemsForCategory/:category/:orderby/:offset', function
 
 });
 
-app.get('/SpruceServer/getSubCategoryListPopup/:category', function(req, res) {
+app.get('/SpruceServer/getSubCategoryListPopup/:category/:type', function(req, res) {
 	console.log("GET " + req.url);
 
 	var client = new pg.Client(conString);
 	client.connect();
 
 	var categoryId = req.params.category;
-	;
-
-	var query0 = client.query({
-		text : "SELECT C.catid,C.catname FROM category AS C, subcat AS S WHERE S.subcatid=C.catid AND subcatid NOT IN (SELECT subcatid FROM subcat WHERE subcat.catid <> $1)",
-		values : [categoryId],
-	});
-	query0.on("row", function(row, result) {
-		result.addRow(row);
-	});
-	query0.on("end", function(result) {
-		var response = {
-			"categories" : result.rows
-		};
-		client.end();
-		res.json(response);
-	});
+	var type = req.params.type;
+	if (type == "parent") {
+		var query0 = client.query({
+			text : "SELECT C.catid,C.catname FROM category AS C, subcat AS S WHERE S.subcatid=C.catid AND subcatid NOT IN (SELECT subcatid FROM subcat WHERE subcat.catid <> $1)",
+			values : [categoryId],
+		});
+		query0.on("row", function(row, result) {
+			result.addRow(row);
+		});
+		query0.on("end", function(result) {
+			var response = {
+				"categories" : result.rows
+			};
+			client.end();
+			res.json(response);
+		});
+	}
+	else{
+		var query0 = client.query({
+			text : "SELECT distinct C.catid,C.catname FROM category AS C, subcat AS S WHERE S.subcatid=C.catid AND subcatid IN (SELECT subcatid FROM subcat WHERE subcat.catid = $1)",
+			values : [categoryId],
+		});
+		query0.on("row", function(row, result) {
+			result.addRow(row);
+		});
+		query0.on("end", function(result) {
+			var response = {
+				"categories" : result.rows
+			};
+			client.end();
+			res.json(response);
+		});
+	}
 });
 
 app.get('/SpruceServer/getCategoriesForSidePanel', function(req, res) {

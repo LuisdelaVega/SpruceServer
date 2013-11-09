@@ -635,6 +635,31 @@ app.get('/SpruceServer/user/store', function(req, res) {
 	});
 });
 
+//REST for Buyers List
+app.get('/SpruceServer/getBuyers/:id', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "SELECT accusername, accphoto, accfname, acclname, itemquantity, item.price FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE itemid = $1",
+		values : [req.params.id]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+
+	query.on("end", function(result) {
+		var response = {
+			"buyers" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+	
+});
+
 //REST for user profile
 app.put('/SpruceServer/userProfile', function(req, res) {
 	console.log("GET " + req.url);
@@ -646,6 +671,32 @@ app.put('/SpruceServer/userProfile', function(req, res) {
 
 	var query = client.query({
 		text : "SELECT * FROM account natural join ships_to natural join saddress WHERE accpassword = $1",
+		values : [password]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+
+	query.on("end", function(result) {
+		var response = {
+			"user" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+});
+
+//REST for user profile
+app.put('/SpruceServer/userRating', function(req, res) {
+	console.log("GET " + req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var password = req.body.password;
+
+	var query = client.query({
+		text : "SELECT accrating FROM account WHERE accpassword = $1",
 		values : [password]
 	});
 	query.on("row", function(row, result) {

@@ -54,6 +54,27 @@ var allowCrossDomain = function(req, res, next) {
 // c) PUT - Update an individual object, or collection  (Database update operation)
 // d) DELETE - Remove an individual object, or collection (Database delete operation)
 
+app.get('/SpruceServer/myadmintools/users', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "SELECT accusername FROM account",
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var response = {
+			"users" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+
+});
+
 app.get('/SpruceServer/adminaccountedit/:username', function(req, res) {
 	console.log("GET " + req.url);
 

@@ -72,7 +72,6 @@ app.get('/SpruceServer/myadmintools/users', function(req, res) {
 		client.end();
 		res.json(response);
 	});
-
 });
 
 app.get('/SpruceServer/adminaccountedit/:username', function(req, res) {
@@ -601,32 +600,6 @@ app.get('/SpruceServer/seller-product-bids/:id', function(req, res) {
 		};
 		client.end();
 		res.json(response);
-	});
-});
-
-//REST for admin tools, user and category
-app.get('/SpruceServer/myadmintools/:id', function(req, res) {
-	console.log("GET " + req.url);
-	var response;
-	var id = req.params.id;
-	var file = id + ".json";
-
-	fs.readFile(file, 'utf8', function(err, data) {
-		if (err) {
-			console.log('Error: ' + err);
-		} else {
-			data = JSON.parse(data);
-			if (id == 'category') {
-				response = {
-					"category" : data
-				};
-			} else if (id == 'users') {
-				response = {
-					"users" : data
-				};
-			}
-			res.json(response);
-		}
 	});
 });
 

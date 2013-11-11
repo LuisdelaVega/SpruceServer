@@ -666,7 +666,7 @@ app.get('/SpruceServer/totalRevenueReport/:category/:time', function(req, res) {
 	console.log("Time: " + req.params.time);
 	
 	var query = client.query({
-		text : "SELECT sum(invoicetotalprice) as sells FROM item NATURAL JOIN of NATURAL JOIN invoice NATURAL JOIN describe NATURAL JOIN category WHERE invoicedate > $2 AND catid IN (SELECT subcatid FROM subcat NATURAL JOIN category WHERE catname = $1)",
+		text : "SELECT sum(item.price) as sells FROM item NATURAL JOIN of NATURAL JOIN invoice NATURAL JOIN describe NATURAL JOIN category WHERE invoicedate > $2 AND catid IN (SELECT subcatid FROM subcat NATURAL JOIN category WHERE catname = $1)",
 		values : [req.params.category, req.params.time]
 	});
 	query.on("row", function(row, result) {

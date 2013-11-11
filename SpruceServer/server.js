@@ -26,7 +26,6 @@ app.use(express.bodyParser());
 
 
 var fs = require('fs');
-var item = require("./objects/item.js");
 var pg = require('pg');
 
 var conString = "pg://postgres:post123@localhost:5432/SpruceDB";
@@ -72,6 +71,7 @@ app.get('/SpruceServer/myadmintools/users', function(req, res) {
 		client.end();
 		res.json(response);
 	});
+
 });
 
 app.get('/SpruceServer/adminaccountedit/:username', function(req, res) {
@@ -491,7 +491,7 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 	// var index = -1;
 	if (req.params.select == 'bidding') {
 		var query = client.query({
-			text : "select item.*, max(biddate) as date, max(bidprice) from account natural join places natural join bid natural join on_event natural join bid_event natural join participates natural join item where account.accpassword = $1 group by item.itemid order by date",
+			text : "SELECT item.*, max(biddate) as date, max(bidprice) FROM account NATURAL JOIN places NATURAL JOIN bid NATURAL JOIN on_event NATURAL JOIN bid_event NATURAL JOIN participates NATURAL JOIN item WHERE account.accpassword = $1 AND bideventenddate > current_timestamp GROUP BY item.itemid ORDER BY date",
 			values : [req.body.acc]
 		});
 		query.on("row", function(row, result) {
@@ -508,7 +508,7 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 
 	} else if (req.params.select == 'selling') {
 		var query = client.query({
-			text : "select item.* from account natural join sells natural join item where account.accpassword = $1 and itemid not in (select itemid from sold natural join item where restock = false)",
+			text : "SELECT item.* FROM account NATURAL JOIN sells NATURAL JOIN item WHERE account.accpassword = $1 AND (item.amount > 0 OR item.restock = true)",
 			values : [req.body.acc]
 		});
 		query.on("row", function(row, result) {
@@ -525,7 +525,7 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 
 	} else {
 		var query = client.query({
-			text : "select item.*, sold.solddate from account natural join sold natural join item where account.accpassword = $1",
+			text : "SELECT item.*, invoice.invoicedate as solddate FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE accpassword <> $1 AND item.itemid IN (SELECT itemid FROM account NATURAL JOIN sells WHERE accpassword = $1) GROUP BY item.itemid, invoice.invoicedate ORDER BY solddate DESC",
 			values : [req.body.acc]
 		});
 		query.on("row", function(row, result) {
@@ -601,6 +601,86 @@ app.get('/SpruceServer/seller-product-bids/:id', function(req, res) {
 		client.end();
 		res.json(response);
 	});
+});
+
+//REST for Total Sells
+app.get('/SpruceServer/totalSellsReport', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "SELECT count(itemid) as sells FROM item NATURAL JOIN of NATURAL JOIN invoice"
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+
+	query.on("end", function(result) {
+		var response = {
+			"sells" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+	
+});
+
+//REST for Total Sells for given category and time
+app.get('/SpruceServer/totalSellsReport/:category/:time', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	console.log("Category: " + req.params.category);
+	console.log("Time: " + req.params.time);
+	
+	var query = client.query({
+		text : "SELECT count(itemid) as sells FROM item NATURAL JOIN of NATURAL JOIN invoice NATURAL JOIN describe NATURAL JOIN category WHERE invoicedate > $2 AND catid IN (SELECT subcatid FROM subcat NATURAL JOIN category WHERE catname = $1)",
+		values : [req.params.category, req.params.time]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+
+	query.on("end", function(result) {
+		var response = {
+			"sells" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+	
+});
+
+//REST for Total Revenue for given category and time
+app.get('/SpruceServer/totalRevenueReport/:category/:time', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	console.log("Category: " + req.params.category);
+	console.log("Time: " + req.params.time);
+	
+	var query = client.query({
+		text : "SELECT sum(invoicetotalprice) as sells FROM item NATURAL JOIN of NATURAL JOIN invoice NATURAL JOIN describe NATURAL JOIN category WHERE invoicedate > $2 AND catid IN (SELECT subcatid FROM subcat NATURAL JOIN category WHERE catname = $1)",
+		values : [req.params.category, req.params.time]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+
+	query.on("end", function(result) {
+		var response = {
+			"sells" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+	
 });
 
 //REST for cart
@@ -687,6 +767,32 @@ app.put('/SpruceServer/userProfile', function(req, res) {
 
 	var query = client.query({
 		text : "SELECT * FROM account natural join ships_to natural join saddress WHERE accpassword = $1",
+		values : [password]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+
+	query.on("end", function(result) {
+		var response = {
+			"user" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+});
+
+//REST for user profile
+app.put('/SpruceServer/userRating', function(req, res) {
+	console.log("GET " + req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var password = req.body.password;
+
+	var query = client.query({
+		text : "SELECT accrating FROM account WHERE accpassword = $1",
 		values : [password]
 	});
 	query.on("row", function(row, result) {

@@ -763,25 +763,27 @@ app.put('/SpruceServer/mycart', function(req, res) {
 });
 
 //REST for user store
-app.get('/SpruceServer/user/store', function(req, res) {
+app.put('/SpruceServer/getUserStore', function(req, res) {
 	console.log("GET " + req.url);
-	var response;
-	var file = "items.json";
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	console.log(req.body.accusername);
 
-	fs.readFile(file, 'utf8', function(err, data) {
-		if (err) {
-			console.log('Error: ' + err);
-		} else {
-			data = JSON.parse(data);
-			var result = [];
-			for (var i = 0; i < data[2].length; i++) {
-				result.push(data[2][i]);
-			}
-			response = {
-				"items" : result
-			};
-			res.json(response);
-		}
+	var query = client.query({
+		text : "SELECT item.* FROM account NATURAL JOIN sells NATURAL JOIN item WHERE account.accusername = $1 AND (item.amount > 0 OR item.restock = true)",
+		values : [req.body.accusername]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+
+	query.on("end", function(result) {
+		var response = {
+			"items" : result.rows
+		};
+		client.end();
+		res.json(response);
 	});
 });
 
@@ -821,6 +823,32 @@ app.put('/SpruceServer/userProfile', function(req, res) {
 
 	var query = client.query({
 		text : "SELECT * FROM account natural join ships_to natural join saddress WHERE accpassword = $1",
+		values : [password]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+
+	query.on("end", function(result) {
+		var response = {
+			"user" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+});
+
+//REST for user profile
+app.put('/SpruceServer/userRating', function(req, res) {
+	console.log("GET " + req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var password = req.body.password;
+
+	var query = client.query({
+		text : "SELECT accrating FROM account WHERE accpassword = $1",
 		values : [password]
 	});
 	query.on("row", function(row, result) {

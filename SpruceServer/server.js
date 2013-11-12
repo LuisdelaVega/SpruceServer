@@ -838,30 +838,29 @@ app.put('/SpruceServer/userProfile', function(req, res) {
 	});
 });
 
-//REST for user profile
-app.put('/SpruceServer/userRating', function(req, res) {
+app.put('/SpruceServer/getRating', function(req, res) {
 	console.log("GET " + req.url);
-
 	var client = new pg.Client(conString);
+	console.log(req.body.password);
 	client.connect();
-
-	var password = req.body.password;
-
 	var query = client.query({
-		text : "SELECT accrating FROM account WHERE accpassword = $1",
-		values : [password]
+		text : "with users(accid,accusername,accphoto,accfname,acclname) as(select accid,accusername,accphoto,accfname,acclname from account)SELECT rating.*,users.accusername,users.accphoto,users.accfname,users.acclname FROM account, rating,users WHERE  seller = account.accid AND account.accpassword = $1 AND users.accid = customer",
+		values : [req.body.password]
 	});
 	query.on("row", function(row, result) {
 		result.addRow(row);
+		console.log(row);
 	});
 
 	query.on("end", function(result) {
 		var response = {
-			"user" : result.rows
+			"ratings" : result.rows
 		};
 		client.end();
 		res.json(response);
+		console.log(response);
 	});
+	
 });
 
 //REST for purchase history

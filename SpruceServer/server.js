@@ -4,26 +4,23 @@ var store = new express.session.MemoryStore;
 
 var app = express();
 var allowCrossDomain = function(req, res, next) {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+	res.header('Access-Control-Allow-Origin', '*');
+	res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+	res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
 
-    // intercept OPTIONS method
-    if ('OPTIONS' == req.method) {
-      res.send(200);
-    }
-    else {
-      next();
-    }
+	// intercept OPTIONS method
+	if ('OPTIONS' == req.method) {
+		res.send(200);
+	} else {
+		next();
+	}
 };
 
-app.configure(function () {
-  app.use(allowCrossDomain);
+app.configure(function() {
+	app.use(allowCrossDomain);
 });
 
-
 app.use(express.bodyParser());
-
 
 var fs = require('fs');
 var pg = require('pg');
@@ -166,6 +163,33 @@ app.put('/SpruceServer/authenticate2', function(req, res) {
 	});
 });
 
+//REST Home View
+app.get('/SpruceServer/checkUsername/:username', function(req, res) {
+	console.log("GET " + req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "SELECT accusername FROM account WHERE accusername = $1",
+		values : [req.params.username]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var flag = result.rows.length > 0;
+		var response = {
+			"success" : flag
+		};
+		console.log(result);
+		console.log(flag);
+		client.end();
+		res.json(response);
+	});
+});
+
+// REST for creating a new account
 app.put('/SpruceServer/signup', function(req, res) {
 	console.log("PUT " + req.url);
 
@@ -181,43 +205,41 @@ app.put('/SpruceServer/signup', function(req, res) {
 	var photo = req.body.photo;
 	var rating = req.body.rating;
 	var slt = req.body.slt;
+	var saddresLine = req.body.saddresLine;
+	var scity = req.body.scity;
+	var sstate = req.body.sstate;
+	var szip = req.body.szip;
+	var scountry = req.body.scountry;
+	var baddresLine = req.body.baddresLine;
+	var bcity = req.body.bcity;
+	var bstate = req.body.bstate;
+	var bzip = req.body.bzip;
+	var bcountry = req.body.bcountry;
+	var cardholderName = req.body.cardholderName;
+	var card = req.body.card;
+	var cardNumber = req.body.cardNumber;
+	var expMonth = req.body.expMonth;
+	var expYear = req.body.expYear;
+	var csc = req.body.csc;
 
-	console.log(username);
-	console.log(fname);
-	console.log(lname);
-	console.log(email);
-	console.log(password);
-	console.log(phone);
-	console.log(photo);
-	console.log(slt);
-	console.log(rating);
+	client.query("BEGIN;");
+	client.query("INSERT INTO account VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9);", [fname, lname, username, password, rating, photo, phone, email, slt]);
+	// Create the new account
+	client.query("INSERT INTO cart VALUES(DEFAULT);");
+	// Create the new cart
+	client.query("INSERT INTO belongs_to VALUES((SELECT max(accid) FROM account), (SELECT max(cartid) FROM cart));");
+	// Set the relationship between the account and its cart
+	client.query("INSERT INTO credit_card VALUES(DEFAULT, $1, $2, $3, $4, $5, $6);", [cardNumber, cardholderName, card, expMonth, expYear, csc]);
+	// Create the new credit_card
+	client.query("INSERT INTO billed VALUES((SELECT max(accid) FROM account), (SELECT max(cid) FROM credit_card));");
+	// Set the relationship between he newly created account and its credit card
+	client.query("INSERT INTO saddress VALUES(DEFAULT, $1, $2, $3, $4, $5);", [saddresLine, scity, sstate, scountry, szip]);
+	// Create the new saddress
+	client.query("INSERT INTO ships_to VALUES((SELECT max(accid) FROM account), (SELECT max(sid) FROM saddress));");
+	client.query("INSERT INTO baddress VALUES(DEFAULT, $1, $2, $3, $4, $5);", [baddresLine, bcity, bstate, bcountry, bzip]);
+	client.query("INSERT INTO bills_to VALUES((SELECT max(cid) FROM credit_card), (SELECT max(bid) FROM baddress));");
+	client.query("COMMIT;");
 
-	var query = client.query({ // Create the new account
-		text : "INSERT INTO account VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9)",
-		values : [fname, lname, username, password, rating, photo, phone, email, slt]
-	});
-	query.on("end", function(result) {
-		var query1 = client.query({ // Create the new cart
-			text : "INSERT INTO cart VALUES(DEFAULT)"
-		});
-		query1.on("end", function(result1) {
-			var query2 = client.query({ // Get both new ids
-				text : "SELECT max(accid) as acc, max(cartid) as caid FROM account, cart"
-			});
-			query2.on("row", function(row, result2) {
-						result2.addRow(row);
-			});
-			query2.on("end", function(result2) {
-				var query3 = client.query({ // Set the relationship between the account and its cart
-					text : "insert into belongs_to values($1,$2)",
-					values : [result2.rows[0].acc, result2.rows[0].caid]
-				});
-				query3.on("end", function(result3) {
-					client.end();
-				});
-			});
-		});
-	});
 	var response = {
 		"success" : true
 	};
@@ -384,8 +406,7 @@ app.get('/SpruceServer/getSubCategoryListPopup/:category/:type', function(req, r
 			client.end();
 			res.json(response);
 		});
-	}
-	else{
+	} else {
 		var query0 = client.query({
 			text : "SELECT distinct C.catid,C.catname FROM category AS C, subcat AS S WHERE S.subcatid=C.catid AND subcatid IN (SELECT subcatid FROM subcat WHERE subcat.catid = $1)",
 			values : [categoryId],
@@ -433,13 +454,13 @@ app.get('/SpruceServer/getSubCategories', function(req, res) {
 	console.log("GET " + req.url);
 	var client = new pg.Client(conString);
 	client.connect();
-	var count=0;
-	var count2=0;
+	var count = 0;
+	var count2 = 0;
 	var query0 = client.query({
 		text : "SELECT category.catid, category.catname FROM subcat, category WHERE category.catid = subcat.catid AND category.catid not in (SELECT subcatid FROM subcat) GROUP BY category.catid ORDER BY category.catid"
 	});
 	query0.on("row", function(row, result) {
-		row['subcat']=new Array();
+		row['subcat'] = new Array();
 		result.addRow(row);
 	});
 	query0.on("end", function(result) {
@@ -456,7 +477,7 @@ app.get('/SpruceServer/getSubCategories', function(req, res) {
 			});
 			query1.on("end", function(row, result) {
 				count++;
-				if(count == response.categories.length){
+				if (count == response.categories.length) {
 					console.log(response.categories);
 					res.json(response);
 					client.end();
@@ -657,7 +678,6 @@ app.put('/SpruceServer/purchaseSumary/:id', function(req, res) {
 
 });
 
-
 app.put('/SpruceServer/checkout', function(req, res) {
 	console.log("GET " + req.url);
 
@@ -675,7 +695,7 @@ app.put('/SpruceServer/checkout', function(req, res) {
 	});
 
 	query.on("end", function(result) {
-		var address=[];
+		var address = [];
 		var query1 = client.query({
 			text : "select street,city FROM account NATURAL JOIN ships_to NATURAL JOIN  saddress WHERE accpassword = $1",
 			values : [password]
@@ -703,7 +723,7 @@ app.put('/SpruceServer/generateInvoice', function(req, res) {
 	var acc = req.body.acc;
 	var total = req.body.total;
 
-	var query0 = client.query({ // Get the accid
+	var query0 = client.query({// Get the accid
 		text : "SELECT accid FROM account WHERE accpassword = $1",
 		values : [acc]
 	});
@@ -711,7 +731,7 @@ app.put('/SpruceServer/generateInvoice', function(req, res) {
 		result0.addRow(row);
 	});
 	query0.on("end", function(result0) {
-		var query = client.query({ // Get the items in the cart
+		var query = client.query({// Get the items in the cart
 			text : "SELECT item.*,quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
 			values : [acc]
 		});
@@ -719,7 +739,7 @@ app.put('/SpruceServer/generateInvoice', function(req, res) {
 			result.addRow(row);
 		});
 		query.on("end", function(result) {
-			var query1 = client.query({ // Create the invoice
+			var query1 = client.query({// Create the invoice
 				text : "INSERT INTO invoice VALUES(DEFAULT, current_timestamp, $1)",
 				values : [total]
 			});
@@ -727,23 +747,23 @@ app.put('/SpruceServer/generateInvoice', function(req, res) {
 				result1.addRow(row);
 			});
 			query1.on("end", function(result1) {
-				var query4 = client.query({ // Create the relationshipp between the invoice and the account
+				var query4 = client.query({// Create the relationshipp between the invoice and the account
 					text : "SELECT max(invoiceid) as invid FROM invoice",
 				});
 				query4.on("row", function(row, result4) {
 					result4.addRow(row);
 				});
 				query4.on("end", function(result4) {
-					var query2 = client.query({ // Create the relationshipp between the invoice and the account
+					var query2 = client.query({// Create the relationshipp between the invoice and the account
 						text : "INSERT INTO keeps VALUES($1, $2)",
-						values : [result4.rows[0].invid,result0.rows[0].accid]
+						values : [result4.rows[0].invid, result0.rows[0].accid]
 					});
 					query2.on("row", function(row, result2) {
 						result2.addRow(row);
 					});
 					query2.on("end", function(result2) {
 						for (var i = 0; i < result.rows.length; i++) {
-							var query3 = client.query({ // Create the relationship between invoice and the items bought
+							var query3 = client.query({// Create the relationship between invoice and the items bought
 								text : "INSERT INTO of VALUES($1, $2, $3)",
 								values : [result4.rows[0].invid, result.rows[i].itemid, result.rows[i].quantity]
 							});
@@ -751,7 +771,7 @@ app.put('/SpruceServer/generateInvoice', function(req, res) {
 								result3.addRow(row);
 							});
 							query3.on("end", function(result3) {
-								if(i+1 == result.rows.length){
+								if (i + 1 == result.rows.length) {
 									client.end();
 								}
 							});
@@ -772,7 +792,7 @@ app.put('/SpruceServer/generateInvoice', function(req, res) {
 //REST for user store
 app.put('/SpruceServer/getUserStore', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
 	console.log(req.body.accusername);
@@ -797,7 +817,7 @@ app.put('/SpruceServer/getUserStore', function(req, res) {
 //REST for Buyers List
 app.get('/SpruceServer/getBuyers/:id', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
 
@@ -816,7 +836,7 @@ app.get('/SpruceServer/getBuyers/:id', function(req, res) {
 		client.end();
 		res.json(response);
 	});
-	
+
 });
 
 //REST for user profile
@@ -868,7 +888,7 @@ app.put('/SpruceServer/getRating', function(req, res) {
 		res.json(response);
 		console.log(response);
 	});
-	
+
 });
 
 //REST for purchase history
@@ -877,7 +897,7 @@ app.put('/SpruceServer/purchaseHistory', function(req, res) {
 
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var acc = req.body.acc;
 
 	var query = client.query({
@@ -894,7 +914,7 @@ app.put('/SpruceServer/purchaseHistory', function(req, res) {
 		client.end();
 		res.json(response);
 	});
-	
+
 });
 
 //Account info
@@ -1167,7 +1187,7 @@ app.get('/SpruceServer/adminshippinginfo/:username', function(req, res) {
 //REST for Total Sells
 app.get('/SpruceServer/totalSellsReport', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
 
@@ -1185,19 +1205,19 @@ app.get('/SpruceServer/totalSellsReport', function(req, res) {
 		client.end();
 		res.json(response);
 	});
-	
+
 });
 
 //REST for Total Sells for given category and time
 app.get('/SpruceServer/totalSellsReport/:category/:time', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	console.log("Category: " + req.params.category);
 	console.log("Time: " + req.params.time);
-	
+
 	var query = client.query({
 		text : "SELECT count(itemid) as sells FROM item NATURAL JOIN of NATURAL JOIN invoice NATURAL JOIN describe NATURAL JOIN category WHERE invoicedate > $2 AND catid IN (SELECT subcatid FROM subcat NATURAL JOIN category WHERE catname = $1)",
 		values : [req.params.category, req.params.time]
@@ -1213,19 +1233,19 @@ app.get('/SpruceServer/totalSellsReport/:category/:time', function(req, res) {
 		client.end();
 		res.json(response);
 	});
-	
+
 });
 
 //REST for Total Revenue for given category and time
 app.get('/SpruceServer/totalRevenueReport/:category/:time', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	console.log("Category: " + req.params.category);
 	console.log("Time: " + req.params.time);
-	
+
 	var query = client.query({
 		text : "SELECT sum(item.price) as sells FROM item NATURAL JOIN of NATURAL JOIN invoice NATURAL JOIN describe NATURAL JOIN category WHERE invoicedate > $2 AND catid IN (SELECT subcatid FROM subcat NATURAL JOIN category WHERE catname = $1)",
 		values : [req.params.category, req.params.time]
@@ -1241,7 +1261,7 @@ app.get('/SpruceServer/totalRevenueReport/:category/:time', function(req, res) {
 		client.end();
 		res.json(response);
 	});
-	
+
 });
 
 app.get('/', function(req, res) {

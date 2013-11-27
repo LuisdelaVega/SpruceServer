@@ -549,9 +549,9 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 });
 
 //REST Get an item for the buyer
-app.get('/SpruceServer/getProduct/:id', function(req, res) {
+app.put('/SpruceServer/getProduct/:id', function(req, res) {
 	var id = req.params.id;
-
+	console.log("Get product for account with password: "+req.body.password);
 	var client = new pg.Client(conString);
 	client.connect();
 
@@ -561,7 +561,74 @@ app.get('/SpruceServer/getProduct/:id', function(req, res) {
 	});
 	query.on("row", function(row, result) {
 		result.addRow(row);
-		// console.log(id);
+	});
+	query.on("end", function(result) {
+		var query1 = client.query({
+			text : "select bid_event.* from item natural join bid_event natural join participates where itemid=$1",
+			values : [result.rows[0].itemid]
+		});
+		query1.on("row", function(row2, result2) {
+			result.rows[0]['currentbidprice'] = row2.currentbidprice;
+			result.rows[0]['bideventdate'] = row2.bideventdate;
+		});
+		query1.on("end", function(row, result2) {
+			// Is a user check cart for quantity
+			if (req.body.password != null) {
+				var query2 = client.query({
+					text : "select quantity from account natural join belongs_to natural join cart natural join contains where itemid=$1 and accpassword=$2",
+					values : [id, req.body.password]
+				});
+				query2.on("row", function(row3, result3) {
+					result.rows[0]['quantityincart'] = row3.quantity;
+				});
+				query2.on("end", function(result3) {
+					if (result.rows[0]['quantityincart'] == null) {
+						result.rows[0]['quantityincart'] = 0;
+					}
+					var response = {
+						"product" : result.rows
+					};
+					client.end();
+					console.log(response);
+					res.json(response);
+				});
+			} else {
+				// Is a guest check cart for quantity
+				var query2 = client.query({
+					text : "select quantity from guest natural join has natural join cart natural join contains where itemid=$1 and guestid=$2",
+					values : [id, req.body.gid]
+				});
+				query2.on("row", function(row3, result3) {
+					result.rows[0]['quantityincart'] = row3.quantity;
+				});
+				query2.on("end", function(result3) {
+					if (result.rows[0]['quantityincart'] == null) {
+						result.rows[0]['quantityincart'] = 0;
+					}
+					var response = {
+						"product" : result.rows
+					};
+					client.end();
+					console.log(response);
+					res.json(response);
+				});
+			}
+		});
+	});
+});
+
+//REST Get an item for the seller
+app.get('/SpruceServer/getProduct/:id', function(req, res) {
+	var id = req.params.id;
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "SELECT item.*,accusername,accrating,accpassword FROM item NATURAL JOIN sells NATURAL JOIN account WHERE itemid = $1",
+		values : [id]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
 	});
 	query.on("end", function(result) {
 		var query1 = client.query({
@@ -577,10 +644,32 @@ app.get('/SpruceServer/getProduct/:id', function(req, res) {
 				"product" : result.rows
 			};
 			client.end();
+			console.log(response);
 			res.json(response);
 		});
 	});
+});
 
+//REST Get password of the seller of an item to do some checking in the app
+app.get('/SpruceServer/checkProduct/:id', function(req, res) {
+	var id = req.params.id;
+	var client = new pg.Client(conString);
+	client.connect();
+	var query = client.query({
+		text : "SELECT accpassword FROM item NATURAL JOIN sells NATURAL JOIN account WHERE itemid = $1",
+		values : [id]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var response = {
+			"password" : result.rows
+		};
+		client.end();
+		console.log(response);
+		res.json(response);
+	});
 });
 
 //REST Bids for item
@@ -631,26 +720,198 @@ app.get('/SpruceServer/sellerprofile/:username', function(req, res) {
 //REST for cart
 app.put('/SpruceServer/mycart', function(req, res) {
 	console.log("GET " + req.url);
-	console.log("Cart for account: " + req.body.acc);
+	//Its a guest so find guest cart
+	if (req.body.acc == null) {
+		console.log("Is a guest");
+		console.log("Cart for guest: " + req.body.gid);
+		var client = new pg.Client(conString);
+		client.connect();
+		var query = client.query({
+			text : "SELECT item.*,quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN has NATURAL JOIN guest WHERE guest.guestid = $1",
+			values : [req.body.gid]
+		});
+		query.on("row", function(row, result) {
+			result.addRow(row);
+		});
+		query.on("end", function(result) {
+			var response = {
+				"cart" : result.rows
+			};
+			client.end();
+			res.json(response);
+		});
+	}
+	//Its a user get user cart
+	else {
+		console.log("Cart for account: " + req.body.acc);
+		var client = new pg.Client(conString);
+		client.connect();
 
-	var client = new pg.Client(conString);
-	client.connect();
+		var query = client.query({
+			text : "SELECT item.*,quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
+			values : [req.body.acc]
+		});
+		query.on("row", function(row, result) {
+			result.addRow(row);
+		});
+		query.on("end", function(result) {
+			var response = {
+				"cart" : result.rows
+			};
+			client.end();
+			res.json(response);
+		});
+	}
+});
 
-	var query = client.query({
-		text : "SELECT item.*,quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
-		values : [req.body.acc]
-	});
-	query.on("row", function(row, result) {
-		result.addRow(row);
-	});
-	query.on("end", function(result) {
-		var response = {
-			"cart" : result.rows
-		};
-		client.end();
-		res.json(response);
-	});
+//REST for adding item to cart
+app.put('/SpruceServer/addToCart/:itemid/:quantity', function(req, res) {
+	console.log("GET " + req.url);
+	var itemid = req.params.itemid;
+	var quantity = req.params.quantity;
+	//Its a new guest, create everything and add item
+	if (req.body.password == null && req.body.gid == null) {
+		console.log("Is a guest for the first time");
+		var client = new pg.Client(conString);
+		client.connect();
+		var query = client.query({
+			text : "BEGIN; INSERT into guest values(DEFAULT); INSERT INTO cart VALUES(DEFAULT); INSERT INTO has values((SELECT max(guestid) from guest),(SELECT max(cartid) from cart)); select max(cartid) as cartid,max(guestid) as guestid from cart,guest; COMMIT;"
+		});
+		query.on("row", function(row, result) {
+			result.addRow(row);
+		});
+		query.on("end", function(result) {
+			var query1 = client.query({
+				text : "insert into contains values ($1,$2,$3)",
+				values : [result.rows[0]['cartid'], itemid, quantity]
+			});
+			query1.on("end", function(result2) {
+				var response = {
+					"guest" : result.rows
+				};
+				client.end();
+				res.json(response);
+			});
+		});
+	} else {
+		//its a guest add item to guest cart
+		if (req.body.password == null) {
+			console.log("Adding item to cart for guest: " + req.body.gid);
+			var client = new pg.Client(conString);
+			client.connect();
+			var query = client.query({
+				text : "insert into contains select cartid,$1,$2 from guest natural join has natural join cart where guestid=$3",
+				values : [itemid, quantity, req.body.gid]
+			});
+			query.on("end", function(result) {
+				var response = {
+					"success" : true
+				};
+				client.end();
+				res.json(response);
+			});
+		}
+		//its a user add item to user cart
+		else {
+			console.log("Adding item to cart for account: " + req.body.password);
+			var client = new pg.Client(conString);
+			client.connect();
+			var query = client.query({
+				text : "insert into contains select cartid,$1,$2 from account natural join belongs_to natural join cart where accpassword=$3",
+				values : [itemid, quantity, req.body.password]
+			});
+			query.on("end", function(result) {
+				var response = {
+					"success" : true
+				};
+				client.end();
+				res.json(response);
+			});
+		}
+	}
+});
 
+//REST for updating quantity of item in cart
+app.put('/SpruceServer/updateToCart/:itemid/:quantity', function(req, res) {
+	console.log("GET " + req.url);
+
+	if (req.body.password == null) {
+		console.log("Is a guest");
+		console.log("Updating item to cart for guest: " + req.body.password);
+		var itemid = req.params.itemid;
+		var quantity = req.params.quantity;
+		var client = new pg.Client(conString);
+		client.connect();
+		var query = client.query({
+			text : "update contains set quantity=$1 from guest natural join has natural join cart where itemid=$2 and guestid=$3",
+			values : [quantity, itemid, req.body.gid]
+		});
+		query.on("end", function(result) {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		});
+	} else {
+		console.log("Updating item to cart for account: " + req.body.password);
+		var itemid = req.params.itemid;
+		var quantity = req.params.quantity;
+		var client = new pg.Client(conString);
+		client.connect();
+		var query = client.query({
+			text : "update contains set quantity=$1 from account natural join belongs_to natural join cart where itemid=$2 and accpassword=$3",
+			values : [quantity, itemid, req.body.password]
+		});
+		query.on("end", function(result) {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		});
+	}
+});
+
+//REST for deleting item in cart
+app.put('/SpruceServer/deleteFromCart/:itemid', function(req, res) {
+	console.log("GET " + req.url);
+	if (req.body.password == null) {
+		console.log("Is a guest");
+		console.log("Deleting item to cart for guest: " + req.body.gid);
+		var itemid = req.params.itemid;
+		var quantity = req.params.quantity;
+		var client = new pg.Client(conString);
+		client.connect();
+		var query = client.query({
+			text : "delete from contains where cartid in ( select cartid from guest natural join has natural join cart where guestid=$1) and itemid=$2",
+			values : [req.body.gid, itemid]
+		});
+		query.on("end", function(result) {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		});
+	} else {
+		console.log("Deleting item to cart for account: " + req.body.password);
+		var itemid = req.params.itemid;
+		var quantity = req.params.quantity;
+		var client = new pg.Client(conString);
+		client.connect();
+		var query = client.query({
+			text : "delete from contains where cartid in ( select cartid from account natural join belongs_to natural join cart where accpassword=$1) and itemid=$2",
+			values : [req.body.password, itemid]
+		});
+		query.on("end", function(result) {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		});
+	}
 });
 
 //REST for purchase sumary
@@ -862,6 +1123,66 @@ app.put('/SpruceServer/userProfile', function(req, res) {
 		};
 		client.end();
 		res.json(response);
+	});
+});
+
+//Add rating
+app.put('/SpruceServer/rateUser/:accid/:rating', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	console.log("Rating user with accountid=" + req.params.accid);
+	client.connect();
+	// Query a tuple to see if the customer has rated the seller
+	var query = client.query({
+		text : "with rater(accid) as(select accid from account where accpassword=$1) select rating.* from rater,rating where seller=$2 and customer=rater.accid",
+		values : [req.body.password, req.params.accid]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		// If no rating are found insert it
+		if (result.rows.length == 0) {
+			client.query("BEGIN");
+			client.query("insert into rating select $1,accid,$2 from account where accpassword=$3", [req.params.accid, req.params.rating, req.body.password]);
+			client.query("update account set accrating = (select sum(rating) from rating where seller=$1)/(select count(*) from rating where seller=$1) where accid =$1", [req.params.accid], function(err, result) {
+				if (err) {
+					var response = {
+						"success" : false
+					};
+					client.end();
+					res.json(response);
+				} else {
+					client.query('COMMIT');
+					var response = {
+						"success" : true
+					};
+					client.end();
+					res.json(response);
+				}
+			});
+		}
+		// Else update current rating
+		else {
+			client.query("BEGIN");
+			client.query("update rating set rating=$1 where customer=$2 and seller=$3", [req.params.rating, result.rows[0]['customer'], req.params.accid]);
+			client.query("update account set accrating = (select sum(rating) from rating where seller=$1)/(select count(*) from rating where seller=$1) where accid =$1", [req.params.accid], function(err, result) {
+				if (err) {
+					var response = {
+						"success" : false
+					};
+					client.end();
+					res.json(response);
+				} else {
+					client.query('COMMIT');
+					var response = {
+						"success" : true
+					};
+					client.end();
+					res.json(response);
+				}
+			});
+		}
 	});
 });
 

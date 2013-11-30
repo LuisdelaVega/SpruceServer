@@ -223,20 +223,23 @@ app.put('/SpruceServer/signup', function(req, res) {
 	var csc = req.body.csc;
 
 	client.query("BEGIN;");
-	client.query("INSERT INTO account VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9);", [fname, lname, username, password, rating, photo, phone, email, slt]);
 	// Create the new account
-	client.query("INSERT INTO cart VALUES(DEFAULT);");
+	client.query("INSERT INTO account VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9);", [fname, lname, username, password, rating, photo, phone, email, slt]);
 	// Create the new cart
-	client.query("INSERT INTO belongs_to VALUES((SELECT max(accid) FROM account), (SELECT max(cartid) FROM cart));");
+	client.query("INSERT INTO cart VALUES(DEFAULT);");
 	// Set the relationship between the account and its cart
-	client.query("INSERT INTO credit_card VALUES(DEFAULT, $1, $2, $3, $4, $5, $6);", [cardNumber, cardholderName, card, expMonth, expYear, csc]);
+	client.query("INSERT INTO belongs_to VALUES((SELECT max(accid) FROM account), (SELECT max(cartid) FROM cart));");
 	// Create the new credit_card
-	client.query("INSERT INTO billed VALUES((SELECT max(accid) FROM account), (SELECT max(cid) FROM credit_card));");
+	client.query("INSERT INTO credit_card VALUES(DEFAULT, $1, $2, $3, $4, $5, $6);", [cardNumber, cardholderName, card, expMonth, expYear, csc]);
 	// Set the relationship between he newly created account and its credit card
-	client.query("INSERT INTO saddress VALUES(DEFAULT, $1, $2, $3, $4, $5);", [saddresLine, scity, sstate, scountry, szip]);
+	client.query("INSERT INTO billed VALUES((SELECT max(accid) FROM account), (SELECT max(cid) FROM credit_card));");
 	// Create the new saddress
+	client.query("INSERT INTO saddress VALUES(DEFAULT, $1, $2, $3, $4, $5);", [saddresLine, scity, sstate, scountry, szip]);
+	// Create the relationship between the account and the Shipping address
 	client.query("INSERT INTO ships_to VALUES((SELECT max(accid) FROM account), (SELECT max(sid) FROM saddress));");
+	// Create the new Billing address
 	client.query("INSERT INTO baddress VALUES(DEFAULT, $1, $2, $3, $4, $5);", [baddresLine, bcity, bstate, bcountry, bzip]);
+	// Create the relationship between the account and the Billing Address
 	client.query("INSERT INTO bills_to VALUES((SELECT max(cid) FROM credit_card), (SELECT max(bid) FROM baddress));");
 	client.query("COMMIT;");
 
@@ -1072,17 +1075,16 @@ app.put('/SpruceServer/checkout', function(req, res) {
 	var password = req.body.password;
 
 	var query = client.query({
-		text : "select number FROM account NATURAL JOIN billed NATURAL JOIN  credit_card WHERE accpassword = $1",
+		text : "SELECT number FROM account NATURAL JOIN billed NATURAL JOIN credit_card WHERE accpassword = $1",
 		values : [password]
 	});
 	query.on("row", function(row, result) {
 		result.addRow(row);
 	});
-
 	query.on("end", function(result) {
 		var address = [];
 		var query1 = client.query({
-			text : "select street,city FROM account NATURAL JOIN ships_to NATURAL JOIN  saddress WHERE accpassword = $1",
+			text : "SELECT street, city FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accpassword = $1",
 			values : [password]
 		});
 		query1.on("row", function(row, result2) {
@@ -1100,7 +1102,7 @@ app.put('/SpruceServer/checkout', function(req, res) {
 	});
 });
 
-app.put('/SpruceServer/generateInvoice', function(req, res) {
+app.put('/SpruceServer/generateInvoice/cart', function(req, res) {
 	console.log("GET " + req.url);
 	var client = new pg.Client(conString);
 	client.connect();
@@ -1117,7 +1119,7 @@ app.put('/SpruceServer/generateInvoice', function(req, res) {
 	});
 	query0.on("end", function(result0) {
 		var query = client.query({// Get the items in the cart
-			text : "SELECT item.*,quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
+			text : "SELECT item.*, quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
 			values : [acc]
 		});
 		query.on("row", function(row, result) {
@@ -1132,8 +1134,8 @@ app.put('/SpruceServer/generateInvoice', function(req, res) {
 				result1.addRow(row);
 			});
 			query1.on("end", function(result1) {
-				var query4 = client.query({// Create the relationshipp between the invoice and the account
-					text : "SELECT max(invoiceid) as invid FROM invoice",
+				var query4 = client.query({// Get the last invoice created
+					text : "SELECT max(invoiceid) as invid FROM invoice"
 				});
 				query4.on("row", function(row, result4) {
 					result4.addRow(row);
@@ -1168,6 +1170,31 @@ app.put('/SpruceServer/generateInvoice', function(req, res) {
 
 		});
 	});
+	var response = {
+		"success" : true
+	};
+	res.json(response);
+});
+
+app.put('/SpruceServer/generateInvoice/buyitnow', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var acc = req.body.acc;
+	var total = req.body.total;
+	var itemid = req.body.itemid;
+	var quantity = req.body.quantity;
+	
+	client.query("BEGIN;");
+	// Create the new invoice
+	client.query("INSERT INTO invoice VALUES(DEFAULT, current_timestamp, $1);", [total]);
+	// Create the realetionship between the Account and the Invoice
+	client.query("INSERT INTO keeps VALUES((SELECT max(invoiceid) FROM invoice), (SELECT accid FROM account WHERE accpassword = $1));", [acc]);
+	// Create the relationship between the Item and the Invoice
+	client.query("INSERT INTO of VALUES((SELECT max(invoiceid) FROM invoice), $1, $2);", [itemid, quantity]);
+	client.query("COMMIT;");
+
 	var response = {
 		"success" : true
 	};

@@ -246,6 +246,143 @@ app.put('/SpruceServer/signup', function(req, res) {
 	res.json(response);
 });
 
+// REST for selling item
+app.put('/SpruceServer/sellitem', function(req, res) {
+	console.log("PUT " + req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var name = req.body.name;
+	var price = req.body.price;
+	var model = req.body.model;
+	var dimensions = req.body.dimensions;
+	var password = req.body.password;
+	var description = req.body.description;
+	var amount = req.body.amount;
+	var photo = req.body.photo;
+	var category = req.body.category;
+	var brand = req.body.brand;
+	client.query("BEGIN");
+	// If amount is one create bid event
+	if (amount == 1) {
+		// Put item in db with starting date and ending date 7 days from starting date
+		client.query("INSERT INTO item VALUES(DEFAULT, $1, $2,LOCALTIMESTAMP, $3, $4, $5, $6, $7,0,$8,false,localtimestamp + '7 days'::interval)", [name, price, description, photo, model, brand, dimensions, amount]);
+		// Associate item with its category
+		client.query("INSERT INTO describe VALUES((SELECT max(itemid) from item),$1)", [category]);
+		// Create bid event, end date is 7 days from todaybhzseeeeeeeeeeeegettttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt z (kittiy was here)
+		client.query("INSERT INTO bid_event VALUES(DEFAULT,0)");
+		client.query("INSERT INTO participates VALUES((SELECT max(itemid) FROM item),(SELECT max(eventid) FROM bid_event))");
+		// Associate seller with item
+		client.query("INSERT INTO sells VALUES((select max(itemid) from item),(SELECT accid from account where accpassword=$1))", [password]);
+		client.query('COMMIT', function(err, result) {
+			if (err) {
+				var response = {
+					"success" : false
+				};
+				client.end();
+				res.json(response);
+			} else {
+				client.query('COMMIT');
+				var response = {
+					"success" : true
+				};
+				client.end();
+				res.json(response);
+			}
+		});
+	} else {
+		// Put item in db with starting date and ending date 7 days from starting date
+		client.query("INSERT INTO item VALUES(DEFAULT, $1, $2,LOCALTIMESTAMP, $3, $4, $5, $6, $7,0,$8,true,localtimestamp + '7 days'::interval)", [name, price, description, photo, model, brand, dimensions, amount]);
+		// Associate item with its category
+		client.query("INSERT INTO describe VALUES((SELECT max(itemid) from item),$1)", [category]);
+		// Associate seller with item
+		client.query("INSERT INTO sells VALUES((select max(itemid) from item),(SELECT accid from account where accpassword=$1))", [password]);
+		client.query('COMMIT', function(err, result) {
+			if (err) {
+				var response = {
+					"success" : false
+				};
+				client.end();
+				res.json(response);
+			} else {
+				var response = {
+					"success" : true
+				};
+				client.end();
+				res.json(response);
+			}
+		});
+	}
+});
+
+//REST Updating Restock of item
+app.get('/SpruceServer/restockItem/:itemid/:amount', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+	client.query("update item set amount=amount+$1 where itemid=$2", [req.params.amount, req.params.itemid], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
+	});
+});
+
+//REST Bidding on an item
+app.put('/SpruceServer/bidItem/:itemid/:amount', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+	client.query("BEGIN");
+	var query = client.query({
+		text : "select currentbidprice from bid_event natural join participates natural join item where itemid=$1",
+		values : [req.params.itemid]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		if (parseFloat(result.rows[0]['currentbidprice']) < parseFloat(req.params.amount)) {
+			client.query("insert into bid values(DEFAULT,$1,localtimestamp)", [req.params.amount]);
+			client.query("insert into places values((select max(bidid) from bid),(select accid from account where accpassword=$1))", [req.body.password]);
+			client.query("insert into on_event values((select max(bidid) from bid),(select eventid from bid_event natural join participates natural join item where itemid=$1))",[req.params.itemid]);
+			client.query("update bid_event set currentbidprice=$1 where eventid in (select  eventid from bid_event natural join participates natural join item where itemid=$2)", [req.params.amount,req.params.itemid], function(err, result) {
+				if (err) {
+					var response = {
+						"success" : false
+					};
+					client.end();
+					res.json(response);
+				} else {
+					client.query('COMMIT');
+					var response = {
+						"success" : true
+					};
+					client.end();
+					res.json(response);
+				}
+			});
+		} else {
+			var response = {
+				"success" : false,
+				"bid" : result.rows[0]['currentbidprice']
+			};
+			client.end();
+			res.json(response);
+		}
+	});
+});
+
 //REST Home View
 app.get('/SpruceServer/home/', function(req, res) {
 	console.log("GET " + req.url);
@@ -497,7 +634,7 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 	// var index = -1;
 	if (req.params.select == 'bidding') {
 		var query = client.query({
-			text : "SELECT item.*, max(biddate) as date, max(bidprice) FROM account NATURAL JOIN places NATURAL JOIN bid NATURAL JOIN on_event NATURAL JOIN bid_event NATURAL JOIN participates NATURAL JOIN item WHERE account.accpassword = $1 AND bideventenddate > current_timestamp GROUP BY item.itemid ORDER BY date",
+			text : "SELECT item.*, max(biddate) as date, max(bidprice) FROM account NATURAL JOIN places NATURAL JOIN bid NATURAL JOIN on_event NATURAL JOIN bid_event NATURAL JOIN participates NATURAL JOIN item WHERE account.accpassword = $1 AND item_end_date > current_timestamp GROUP BY item.itemid ORDER BY date",
 			values : [req.body.acc]
 		});
 		query.on("row", function(row, result) {
@@ -551,69 +688,64 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 //REST Get an item for the buyer
 app.put('/SpruceServer/getProduct/:id', function(req, res) {
 	var id = req.params.id;
-	console.log("Get product for account with password: "+req.body.password);
+	console.log("Get product for account with password: " + req.body.password);
 	var client = new pg.Client(conString);
 	client.connect();
-
+	client.query("BEGIN");
+	// Incremetn view
+	client.query("update item set views=views+1 where itemid=$1", [id]);
+	// Get item with its bid event, bid event can be null (left outer join) this will facilitate the app
 	var query = client.query({
-		text : "SELECT item.*,accusername,accrating,accpassword FROM item NATURAL JOIN sells NATURAL JOIN account WHERE itemid = $1",
+		text : "select item.*,bid_event.*,account.accusername,account.accrating from account natural join sells natural join item left outer join participates on (item.itemid=participates.itemid) left outer join bid_event on (bid_event.eventid=participates.eventid)  where item.itemid=$1",
 		values : [id]
 	});
 	query.on("row", function(row, result) {
 		result.addRow(row);
 	});
 	query.on("end", function(result) {
-		var query1 = client.query({
-			text : "select bid_event.* from item natural join bid_event natural join participates where itemid=$1",
-			values : [result.rows[0].itemid]
-		});
-		query1.on("row", function(row2, result2) {
-			result.rows[0]['currentbidprice'] = row2.currentbidprice;
-			result.rows[0]['bideventdate'] = row2.bideventdate;
-		});
-		query1.on("end", function(row, result2) {
-			// Is a user check cart for quantity
-			if (req.body.password != null) {
-				var query2 = client.query({
-					text : "select quantity from account natural join belongs_to natural join cart natural join contains where itemid=$1 and accpassword=$2",
-					values : [id, req.body.password]
-				});
-				query2.on("row", function(row3, result3) {
-					result.rows[0]['quantityincart'] = row3.quantity;
-				});
-				query2.on("end", function(result3) {
-					if (result.rows[0]['quantityincart'] == null) {
-						result.rows[0]['quantityincart'] = 0;
-					}
-					var response = {
-						"product" : result.rows
-					};
-					client.end();
-					console.log(response);
-					res.json(response);
-				});
-			} else {
-				// Is a guest check cart for quantity
-				var query2 = client.query({
-					text : "select quantity from guest natural join has natural join cart natural join contains where itemid=$1 and guestid=$2",
-					values : [id, req.body.gid]
-				});
-				query2.on("row", function(row3, result3) {
-					result.rows[0]['quantityincart'] = row3.quantity;
-				});
-				query2.on("end", function(result3) {
-					if (result.rows[0]['quantityincart'] == null) {
-						result.rows[0]['quantityincart'] = 0;
-					}
-					var response = {
-						"product" : result.rows
-					};
-					client.end();
-					console.log(response);
-					res.json(response);
-				});
-			}
-		});
+		// Is a user check cart for quantity
+		if (req.body.password != null) {
+			var query2 = client.query({
+				text : "select quantity from account natural join belongs_to natural join cart natural join contains where itemid=$1 and accpassword=$2",
+				values : [id, req.body.password]
+			});
+			query2.on("row", function(row3, result3) {
+				result.rows[0]['quantityincart'] = row3.quantity;
+			});
+			query2.on("end", function(result3) {
+				if (result.rows[0]['quantityincart'] == null) {
+					result.rows[0]['quantityincart'] = 0;
+				}
+				var response = {
+					"product" : result.rows
+				};
+				client.query("COMMIT");
+				client.end();
+				console.log(response);
+				res.json(response);
+			});
+		} else {
+			// Is a guest check cart for quantity
+			var query2 = client.query({
+				text : "select quantity from guest natural join has natural join cart natural join contains where itemid=$1 and guestid=$2",
+				values : [id, req.body.gid]
+			});
+			query2.on("row", function(row3, result3) {
+				result.rows[0]['quantityincart'] = row3.quantity;
+			});
+			query2.on("end", function(result3) {
+				if (result.rows[0]['quantityincart'] == null) {
+					result.rows[0]['quantityincart'] = 0;
+				}
+				var response = {
+					"product" : result.rows
+				};
+				client.query("COMMIT");
+				client.end();
+				console.log(response);
+				res.json(response);
+			});
+		}
 	});
 });
 
@@ -622,31 +754,23 @@ app.get('/SpruceServer/getProduct/:id', function(req, res) {
 	var id = req.params.id;
 	var client = new pg.Client(conString);
 	client.connect();
-
+	client.query("BEGIN");
+	// Get item with its bid event if bid event can be null (left outer join) this will facilitate the app
 	var query = client.query({
-		text : "SELECT item.*,accusername,accrating,accpassword FROM item NATURAL JOIN sells NATURAL JOIN account WHERE itemid = $1",
+		text : "select item.*,bid_event.*,account.accusername,account.accrating from account natural join sells natural join item left outer join participates on (item.itemid=participates.itemid) left outer join bid_event on (bid_event.eventid=participates.eventid)  where item.itemid=$1",
 		values : [id]
 	});
 	query.on("row", function(row, result) {
 		result.addRow(row);
 	});
 	query.on("end", function(result) {
-		var query1 = client.query({
-			text : "select bid_event.* from item natural join bid_event natural join participates where itemid=$1",
-			values : [result.rows[0].itemid]
-		});
-		query1.on("row", function(row2, result2) {
-			result.rows[0]['currentbidprice'] = row2.currentbidprice;
-			result.rows[0]['bideventdate'] = row2.bideventdate;
-		});
-		query1.on("end", function(row, result2) {
-			var response = {
-				"product" : result.rows
-			};
-			client.end();
-			console.log(response);
-			res.json(response);
-		});
+		var response = {
+			"product" : result.rows
+		};
+		client.query("COMMIT");
+		client.end();
+		console.log(response);
+		res.json(response);
 	});
 });
 

@@ -1041,6 +1041,31 @@ app.put('/SpruceServer/deleteFromCart/:itemid', function(req, res) {
 	}
 });
 
+//REST for last purchase sumary
+app.put('/SpruceServer/purchaseSumary', function(req, res) {
+	console.log("GET " + req.url);
+	console.log("Cart for account: " + req.body.acc);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var query = client.query({
+		text : "SELECT item.*, itemquantity as quantity, max(invoiceid) FROM keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item NATURAL JOIN account WHERE account.accpassword = $1 AND invoice.invoiceid = (SELECT max(invoiceid) FROM invoice) group by item.itemid, quantity",
+		values : [req.body.acc]
+	});
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var response = {
+			"items" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+
+});
+
 //REST for purchase sumary
 app.put('/SpruceServer/purchaseSumary/:id', function(req, res) {
 	console.log("GET " + req.url);

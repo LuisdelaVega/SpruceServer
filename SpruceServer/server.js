@@ -1281,7 +1281,7 @@ app.put('/SpruceServer/userProfile', function(req, res) {
 app.put('/SpruceServer/rateUser/:accid/:rating', function(req, res) {
 	console.log("GET " + req.url);
 	var client = new pg.Client(conString);
-	console.log("Rating user with accountid=" + req.params.accid);
+	console.log("Rating user with accountid=" + req.params.accid+" and comment= "+req.body.comment);
 	client.connect();
 	// Query a tuple to see if the customer has rated the seller
 	var query = client.query({
@@ -1295,7 +1295,7 @@ app.put('/SpruceServer/rateUser/:accid/:rating', function(req, res) {
 		// If no rating are found insert it
 		if (result.rows.length == 0) {
 			client.query("BEGIN");
-			client.query("insert into rating select $1,accid,$2 from account where accpassword=$3", [req.params.accid, req.params.rating, req.body.password]);
+			client.query("insert into rating select $1,accid,$2,$3 from account where accpassword=$4", [req.params.accid, req.params.rating,req.body.comment, req.body.password]);
 			client.query("update account set accrating = (select sum(rating) from rating where seller=$1)/(select count(*) from rating where seller=$1) where accid =$1", [req.params.accid], function(err, result) {
 				if (err) {
 					var response = {
@@ -1316,7 +1316,7 @@ app.put('/SpruceServer/rateUser/:accid/:rating', function(req, res) {
 		// Else update current rating
 		else {
 			client.query("BEGIN");
-			client.query("update rating set rating=$1 where customer=$2 and seller=$3", [req.params.rating, result.rows[0]['customer'], req.params.accid]);
+			client.query("update rating set rating=$1,comment=$2 where customer=$3 and seller=$4", [req.params.rating,req.body.comment, result.rows[0]['customer'], req.params.accid]);
 			client.query("update account set accrating = (select sum(rating) from rating where seller=$1)/(select count(*) from rating where seller=$1) where accid =$1", [req.params.accid], function(err, result) {
 				if (err) {
 					var response = {
@@ -1338,14 +1338,13 @@ app.put('/SpruceServer/rateUser/:accid/:rating', function(req, res) {
 });
 
 //Get list of ratings
-app.put('/SpruceServer/getRating', function(req, res) {
+app.get('/SpruceServer/getRating/:accid', function(req, res) {
 	console.log("GET " + req.url);
 	var client = new pg.Client(conString);
-	console.log(req.body.password);
 	client.connect();
 	var query = client.query({
-		text : "with users(accid,accusername,accphoto,accfname,acclname) as(select accid,accusername,accphoto,accfname,acclname from account)SELECT rating.*,users.accusername,users.accphoto,users.accfname,users.acclname FROM account, rating,users WHERE  seller = account.accid AND account.accpassword = $1 AND users.accid = customer",
-		values : [req.body.password]
+		text : "with users(accid,accusername,accphoto,accfname,acclname) as(select accid,accusername,accphoto,accfname,acclname from account)SELECT rating.*,users.accusername,users.accphoto,users.accfname,users.acclname FROM account, rating,users WHERE  seller = account.accid AND account.accid = $1 AND users.accid = customer",
+		values : [req.params.accid]
 	});
 	query.on("row", function(row, result) {
 		result.addRow(row);

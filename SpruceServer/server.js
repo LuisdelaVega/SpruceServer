@@ -394,7 +394,7 @@ app.get('/SpruceServer/home/', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM item WHERE (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp ORDER BY views DESC LIMIT 5"
+		text : "SELECT * FROM item WHERE item.amount > 0 AND item_end_date > current_timestamp ORDER BY views DESC LIMIT 5"
 	});
 
 	query.on("row", function(row, result) {
@@ -419,7 +419,7 @@ app.get('/SpruceServer/Spruce/PopularNow/', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM item WHERE (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp ORDER BY views DESC"
+		text : "SELECT * FROM item WHERE item.amount > 0 AND item_end_date > current_timestamp ORDER BY views DESC"
 	});
 
 	query.on("row", function(row, result) {
@@ -444,7 +444,7 @@ app.get('/SpruceServer/searchpage/:parameter', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM item WHERE itemname ILIKE '%" + parameter + "%' AND (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp"
+		text : "SELECT * FROM item WHERE itemname ILIKE '%" + parameter + "%' AND item.amount > 0 AND item_end_date > current_timestamp"
 	});
 	query.on("row", function(row, result) {
 		result.addRow(row);
@@ -474,12 +474,12 @@ app.get('/SpruceServer/getItemsForCategory/:category/:orderby/:offset', function
 	var query;
 	if (orderby[0] == "none") {
 		query = client.query({
-			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1 offset $2)",
+			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE item.amount > 0 AND item_end_date > current_timestamp AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1 offset $2)",
 			values : [categoryId, offset]
 		});
 	} else {
 		query = client.query({
-			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1) ORDER BY " + orderby[0] + " " + orderby[1] + " OFFSET $2",
+			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE item.amount > 0 AND item_end_date > current_timestamp AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1) ORDER BY " + orderby[0] + " " + orderby[1] + " OFFSET $2",
 			values : [categoryId, offset]
 		});
 	}
@@ -637,7 +637,7 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 	// var index = -1;
 	if (req.params.select == 'bidding') {
 		var query = client.query({
-			text : "SELECT item.*, max(biddate) as date, max(bidprice) FROM account NATURAL JOIN places NATURAL JOIN bid NATURAL JOIN on_event NATURAL JOIN bid_event NATURAL JOIN participates NATURAL JOIN item WHERE account.accpassword = $1 AND item_end_date > current_timestamp GROUP BY item.itemid ORDER BY date",
+			text : "SELECT item.*, max(biddate) as date, max(bidprice) FROM account NATURAL JOIN places NATURAL JOIN bid NATURAL JOIN on_event NATURAL JOIN bid_event NATURAL JOIN participates NATURAL JOIN item WHERE item.amount > 0 AND account.accpassword = $1 AND item_end_date > current_timestamp GROUP BY item.itemid ORDER BY date",
 			values : [req.body.acc]
 		});
 		query.on("row", function(row, result) {
@@ -654,7 +654,7 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 
 	} else if (req.params.select == 'selling') {
 		var query = client.query({
-			text : "SELECT item.* FROM account NATURAL JOIN sells NATURAL JOIN item WHERE account.accpassword = $1 AND (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp",
+			text : "SELECT item.* FROM account NATURAL JOIN sells NATURAL JOIN item WHERE account.accpassword = $1 AND (item.amount > 0 OR restock = true) AND item_end_date > current_timestamp",
 			values : [req.body.acc]
 		});
 		query.on("row", function(row, result) {
@@ -853,8 +853,9 @@ app.put('/SpruceServer/mycart', function(req, res) {
 		console.log("Cart for guest: " + req.body.gid);
 		var client = new pg.Client(conString);
 		client.connect();
+		client.query("BEGIN; DELETE FROM contains WHERE amount < 1 OR item_end_date < current_timestamp");
 		var query = client.query({
-			text : "SELECT item.*, quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN has NATURAL JOIN guest WHERE guest.guestid = $1",
+			text : "SELECT item.*, quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN has NATURAL JOIN guest WHERE guest.guestid = $1;",
 			values : [req.body.gid]
 		});
 		query.on("row", function(row, result) {
@@ -864,6 +865,7 @@ app.put('/SpruceServer/mycart', function(req, res) {
 			var response = {
 				"cart" : result.rows
 			};
+			client.query("COMMIT;");
 			client.end();
 			res.json(response);
 		});
@@ -1201,7 +1203,7 @@ app.put('/SpruceServer/getUserStore', function(req, res) {
 	console.log(req.body.accusername);
 
 	var query = client.query({
-		text : "SELECT item.* FROM account NATURAL JOIN sells NATURAL JOIN item WHERE account.accusername = $1 AND (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp",
+		text : "SELECT item.* FROM account NATURAL JOIN sells NATURAL JOIN item WHERE account.accusername = $1 AND item.amount > 0 AND item_end_date > current_timestamp",
 		values : [req.body.accusername]
 	});
 	query.on("row", function(row, result) {

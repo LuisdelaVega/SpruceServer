@@ -528,7 +528,7 @@ app.get('/SpruceServer/home/', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM item WHERE item.amount > 0 AND item_end_date > current_timestamp ORDER BY views DESC LIMIT 5"
+		text : "SELECT * FROM item WHERE item.amount > 0 AND item_end_date > current_timestamp ORDER BY views DESC LIMIT 3"
 	});
 
 	query.on("row", function(row, result) {
@@ -804,8 +804,8 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 		});
 
 	} else if (req.params.select == 'sold') {
-		var query = client.query({
-			text : "SELECT item.*, invoice.invoicedate as solddate FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE accpassword <> $1 AND item.itemid IN (SELECT itemid FROM account NATURAL JOIN sells WHERE accpassword = $1) GROUP BY item.itemid, invoice.invoicedate ORDER BY solddate DESC",
+		var query = client.query({ 
+			text : "SELECT item.*, invoice.invoicedate as solddate,bid_event.currentbidprice,wins.bidwonid FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item left outer join participates on(item.itemid=participates.itemid) left outer join bid_event on(participates.eventid=bid_event.eventid) left outer join wins on(item.itemid=wins.itemid) WHERE accpassword <> $1 AND item.itemid IN (SELECT itemid FROM account NATURAL JOIN sells WHERE accpassword = $1) ORDER BY solddate DESC",
 			values : [req.body.acc]
 		});
 		query.on("row", function(row, result) {

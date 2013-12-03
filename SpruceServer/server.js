@@ -805,7 +805,7 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 
 	} else if (req.params.select == 'sold') {
 		var query = client.query({ 
-			text : "SELECT item.*, invoice.invoicedate as solddate,bid_event.currentbidprice,wins.bidwonid FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item left outer join participates on(item.itemid=participates.itemid) left outer join bid_event on(participates.eventid=bid_event.eventid) left outer join wins on(item.itemid=wins.itemid) WHERE accpassword <> $1 AND item.itemid IN (SELECT itemid FROM account NATURAL JOIN sells WHERE accpassword = $1) ORDER BY solddate DESC",
+			text : "SELECT item.*, invoice.invoicedate as solddate,bid_event.currentbidprice,wins.bidwonid,invoice.invoiceid FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item left outer join participates on(item.itemid=participates.itemid) left outer join bid_event on(participates.eventid=bid_event.eventid) left outer join wins on(item.itemid=wins.itemid) WHERE accpassword <> $1 AND item.itemid IN (SELECT itemid FROM account NATURAL JOIN sells WHERE accpassword = $1) ORDER BY solddate DESC",
 			values : [req.body.acc]
 		});
 		query.on("row", function(row, result) {
@@ -853,6 +853,27 @@ app.get('/SpruceServer/negotiateBid/:itemid', function(req, res) {
 	query0.on("end", function(result) {
 		var response = {
 			"bidinfo" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+});
+
+//REST Get sold reciept for seller
+app.get('/SpruceServer/soldReciept/:invoiceid/:itemid', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+	var query0 = client.query({
+		text : "select accusername,accphoto,accrating,invoice.invoicedate,saddress.*,of.itemquantity,brand,photo,model,itemname from account natural join keeps natural join invoice natural join send_to natural join saddress natural join of natural join item where invoice.invoiceid=$1 and item.itemid=$2",
+		values : [req.params.invoiceid,req.params.itemid],
+	});
+	query0.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query0.on("end", function(result) {
+		var response = {
+			"recieptinfo" : result.rows
 		};
 		client.end();
 		res.json(response);

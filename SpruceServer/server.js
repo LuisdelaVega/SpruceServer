@@ -803,7 +803,7 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 			res.json(response);
 		});
 
-	} else {
+	} else if (req.params.select == 'sold') {
 		var query = client.query({
 			text : "SELECT item.*, invoice.invoicedate as solddate FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE accpassword <> $1 AND item.itemid IN (SELECT itemid FROM account NATURAL JOIN sells WHERE accpassword = $1) GROUP BY item.itemid, invoice.invoicedate ORDER BY solddate DESC",
 			values : [req.body.acc]
@@ -819,7 +819,69 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 			client.end();
 			res.json(response);
 		});
+	} else {
+		var query = client.query({
+			text : "select item.* from account natural join sells natural join item left outer join participates on (item.itemid=participates.itemid) left outer join bid_event on (bid_event.eventid=participates.eventid) where item_end_date < localtimestamp and currentbidprice != 0 and accpassword=$1 and active=true and item.itemid not in(SELECT itemid FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE accpassword <> $1 AND item.itemid IN (SELECT itemid FROM account NATURAL JOIN sells WHERE accpassword = $1))",
+			values : [req.body.acc]
+		});
+		query.on("row", function(row, result) {
+			result.addRow(row);
+			// console.log(id);
+		});
+		query.on("end", function(result) {
+			var response = {
+				"items" : result.rows
+			};
+			client.end();
+			res.json(response);
+		});
 	}
+});
+
+//REST Bids for item
+app.get('/SpruceServer/negotiateBid/:itemid', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+	var query0 = client.query({
+		text : "select itemid,accrating,accusername,accphoto,currentbidprice,itemname,model,brand,price,photo from account natural join places natural join bid natural join on_event natural join bid_event natural join participates natural join item where bidprice=currentbidprice and itemid=$1",
+		values : [req.params.itemid],
+	});
+	query0.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query0.on("end", function(result) {
+		var response = {
+			"bidinfo" : result.rows
+		};
+		client.end();
+		res.json(response);
+	});
+});
+
+//REST Bids for item
+app.get('/SpruceServer/declineBid/:itemid', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+	client.query("BEGIN");
+	client.query("update bid_event set active=false from item natural join participates where item.itemid=$1 and bid_event.eventid=participates.eventid",[req.params.itemid], function(err, result) {
+			if (err) {
+				client.query("COMMIT");
+				var response = {
+					"success" : false
+				};
+				client.end();
+				res.json(response);
+			} else {
+				client.query("COMMIT");
+				var response = {
+					"success" : true
+				};
+				client.end();
+				res.json(response);
+			}
+		});
 });
 
 //REST Get an item for the buyer
@@ -1327,6 +1389,42 @@ app.put('/SpruceServer/generateInvoice/buyitnow', function(req, res) {
 	};
 	res.json(response);
 });
+
+app.put('/SpruceServer/generateInvoice/auction', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var username = req.body.username;
+	var total = req.body.price;
+	var itemid = req.body.itemid;
+
+	client.query("BEGIN;");
+	// Create the new invoice
+	client.query("INSERT INTO invoice VALUES(DEFAULT, current_timestamp, $1);", [total]);
+	// Create the realetionship between the Account and the Invoice
+	client.query("INSERT INTO keeps VALUES((SELECT max(invoiceid) FROM invoice), (SELECT accid FROM account WHERE accusername = $1));", [username]);
+	// Create the relationship between the Item and the Invoice
+	client.query("INSERT INTO of VALUES((SELECT max(invoiceid) FROM invoice), $1, 1);", [itemid]);
+	client.query("UPDATE item SET amount = amount - (SELECT itemquantity FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE account.accid = (SELECT accid FROM account WHERE accusername = $1) AND invoice.invoiceid = (SELECT max(invoiceid) FROM invoice) AND item.itemid = $2) WHERE item.itemid = $2", [username, itemid]);
+	// Set active state of bid event false
+	client.query("update bid_event set active=false from item natural join participates where item.itemid=$1 and bid_event.eventid=participates.eventid",[itemid]);
+	// Create winning bid
+	client.query("INSERT INTO winning_bid VALUES(DEFAULT,$1,localtimestamp)",[total]);
+	// Create winning bid relation with bid event
+	client.query("INSERT INTO determines VALUES((SELECT eventid FROM item NATURAL JOIN participates NATURAL JOIN bid_event where item.itemid=$1),(SELECT max(bidwonid) from winning_bid ))",[itemid]);
+	// Create winning bid item relation
+	client.query("INSERT INTO wins VALUES($1,(SELECT max(bidwonid) from winning_bid))",[itemid]);
+	// Create winning bid account relation
+	client.query("INSERT INTO placed_by VALUES((SELECT accid FROM account WHERE accusername=$1),(SELECT max(bidwonid) FROM winning_bid))",[username]);
+	client.query("COMMIT;");
+
+	var response = {
+		"success" : true
+	};
+	res.json(response);
+});
+
 
 //REST for user store
 app.put('/SpruceServer/getUserStore', function(req, res) {

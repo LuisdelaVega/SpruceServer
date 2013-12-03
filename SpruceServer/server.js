@@ -364,11 +364,11 @@ app.put('/SpruceServer/signup', function(req, res) {
 	// Set the relationship between the account and its cart
 	client.query("INSERT INTO belongs_to VALUES((SELECT max(accid) FROM account), (SELECT max(cartid) FROM cart));");
 	// Create the new credit_card
-	client.query("INSERT INTO credit_card VALUES(DEFAULT, $1, $2, $3, $4, $5, $6);", [cardNumber, cardholderName, card, expMonth, expYear, csc]);
+	client.query("INSERT INTO credit_card VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, true);", [cardNumber, cardholderName, card, expMonth, expYear, csc]);
 	// Set the relationship between he newly created account and its credit card
 	client.query("INSERT INTO billed VALUES((SELECT max(accid) FROM account), (SELECT max(cid) FROM credit_card));");
 	// Create the new saddress
-	client.query("INSERT INTO saddress VALUES(DEFAULT, $1, $2, $3, $4, $5);", [saddresLine, scity, sstate, scountry, szip]);
+	client.query("INSERT INTO saddress VALUES(DEFAULT, $1, $2, $3, $4, $5, true);", [saddresLine, scity, sstate, scountry, szip]);
 	// Create the relationship between the account and the Shipping address
 	client.query("INSERT INTO ships_to VALUES((SELECT max(accid) FROM account), (SELECT max(sid) FROM saddress));");
 	// Create the new Billing address
@@ -1248,7 +1248,7 @@ app.put('/SpruceServer/purchaseSumary', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT item.*, itemquantity as quantity, max(invoiceid) FROM keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item NATURAL JOIN account WHERE account.accpassword = $1 AND invoice.invoiceid = (SELECT max(invoiceid) FROM invoice) group by item.itemid, quantity",
+		text : "SELECT item.*, itemquantity as quantity, credit_card.number, saddress.* FROM keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item NATURAL JOIN account NATURAL JOIN send_to NATURAL JOIN saddress NATURAL JOIN paid_with NATURAL JOIN credit_card WHERE account.accpassword = $1 AND invoice.invoiceid = (SELECT max(invoiceid) FROM invoice)",
 		values : [req.body.acc]
 	});
 	query.on("row", function(row, result) {
@@ -1273,7 +1273,7 @@ app.put('/SpruceServer/purchaseSumary/:id', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT item.*, itemquantity as quantity, max(invoiceid) FROM keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item NATURAL JOIN account WHERE account.accpassword = $1 AND invoice.invoiceid = $2 group by item.itemid, quantity",
+		text : "SELECT item.*, itemquantity as quantity, credit_card.number, saddress.* FROM keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item NATURAL JOIN account NATURAL JOIN send_to NATURAL JOIN saddress NATURAL JOIN paid_with NATURAL JOIN credit_card WHERE account.accpassword = $1 AND invoice.invoiceid = $2",
 		values : [req.body.acc, req.params.id]
 	});
 	query.on("row", function(row, result) {
@@ -1298,7 +1298,7 @@ app.put('/SpruceServer/checkout', function(req, res) {
 	var password = req.body.password;
 
 	var query = client.query({
-		text : "SELECT number FROM account NATURAL JOIN billed NATURAL JOIN credit_card WHERE accpassword = $1",
+		text : "SELECT number, cid FROM account NATURAL JOIN billed NATURAL JOIN credit_card WHERE accpassword = $1",
 		values : [password]
 	});
 	query.on("row", function(row, result) {
@@ -1307,7 +1307,7 @@ app.put('/SpruceServer/checkout', function(req, res) {
 	query.on("end", function(result) {
 		var address = [];
 		var query1 = client.query({
-			text : "SELECT street, city FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accpassword = $1",
+			text : "SELECT street, city, sid FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accpassword = $1",
 			values : [password]
 		});
 		query1.on("row", function(row, result2) {
@@ -1332,10 +1332,16 @@ app.put('/SpruceServer/generateInvoice/cart', function(req, res) {
 
 	var acc = req.body.acc;
 	var total = req.body.total;
+	var card = req.body.card;
+	var address = req.body.address;
 
 	client.query("BEGIN;");
 	// Create the new invoice
 	client.query("INSERT INTO invoice VALUES(DEFAULT, current_timestamp, $1);", [total]);
+	// Create the realetionship between the Invoice and the Shipping Address
+	client.query("INSERT INTO send_to VALUES((SELECT max(invoiceid) FROM invoice), (SELECT sid FROM account NATURAL JOIN ships_to WHERE accpassword = $1 AND sid = $2));", [acc, address]);
+	// Create the realetionship between the Invoice and the Credit Card
+	client.query("INSERT INTO paid_with VALUES((SELECT max(invoiceid) FROM invoice), (SELECT cid FROM account NATURAL JOIN billed WHERE accpassword = $1 AND cid = $2));", [acc, card]);
 	// Create the realetionship between the Account and the Invoice
 	client.query("INSERT INTO keeps VALUES((SELECT max(invoiceid) FROM invoice), (SELECT accid FROM account WHERE accpassword = $1));", [acc]);
 	// Get the items in the cart
@@ -1350,6 +1356,7 @@ app.put('/SpruceServer/generateInvoice/cart', function(req, res) {
 		for (var i = 0; i < result.rows.length; i++) {
 			// Create the relationship between the Item and the Invoice
 			client.query("INSERT INTO of VALUES((SELECT max(invoiceid) FROM invoice), $1, $2);", [result.rows[i].itemid, result.rows[i].quantity]);
+			// Update the amount left for the item
 			client.query("UPDATE item SET amount = amount - (SELECT itemquantity FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE account.accid = (SELECT accid FROM account WHERE accpassword = $1) AND invoice.invoiceid = (SELECT max(invoiceid) FROM invoice) AND item.itemid = $2) WHERE item.itemid = $2", [acc, result.rows[i].itemid]);
 			if (i + 1 == result.rows.length) {
 				client.query("DELETE FROM contains WHERE cartid = (SELECT cartid FROM account NATURAL JOIN belongs_to WHERE accpassword = $1)", [acc]);
@@ -1371,16 +1378,23 @@ app.put('/SpruceServer/generateInvoice/buyitnow', function(req, res) {
 
 	var acc = req.body.acc;
 	var total = req.body.total;
+	var card = req.body.card;
+	var address = req.body.address;
 	var itemid = req.body.itemid;
 	var quantity = req.body.quantity;
 
 	client.query("BEGIN;");
 	// Create the new invoice
 	client.query("INSERT INTO invoice VALUES(DEFAULT, current_timestamp, $1);", [total]);
-	// Create the realetionship between the Account and the Invoice
+	// Create the realetionship between the Invoice and the Shipping Address
+	client.query("INSERT INTO send_to VALUES((SELECT max(invoiceid) FROM invoice), (SELECT sid FROM account NATURAL JOIN ships_to WHERE accpassword = $1 AND sid = $2));", [acc, address]);
+	// Create the realetionship between the Invoice and the Credit Card
+	client.query("INSERT INTO paid_with VALUES((SELECT max(invoiceid) FROM invoice), (SELECT cid FROM account NATURAL JOIN billed WHERE accpassword = $1 AND cid = $2));", [acc, card]);
+	// Create the realetionship between the Invoice and the Account
 	client.query("INSERT INTO keeps VALUES((SELECT max(invoiceid) FROM invoice), (SELECT accid FROM account WHERE accpassword = $1));", [acc]);
-	// Create the relationship between the Item and the Invoice
+	// Create the relationship between the Invoice and the Item
 	client.query("INSERT INTO of VALUES((SELECT max(invoiceid) FROM invoice), $1, $2);", [itemid, quantity]);
+	// Update the amount left for the item
 	client.query("UPDATE item SET amount = amount - (SELECT itemquantity FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE account.accid = (SELECT accid FROM account WHERE accpassword = $1) AND invoice.invoiceid = (SELECT max(invoiceid) FROM invoice) AND item.itemid = $2) WHERE item.itemid = $2", [acc, itemid]);
 	client.query("COMMIT;");
 
@@ -1402,10 +1416,15 @@ app.put('/SpruceServer/generateInvoice/auction', function(req, res) {
 	client.query("BEGIN;");
 	// Create the new invoice
 	client.query("INSERT INTO invoice VALUES(DEFAULT, current_timestamp, $1);", [total]);
+	// Create the realetionship between the Invoice and the Shipping Address
+	client.query("INSERT INTO send_to VALUES((SELECT max(invoiceid) FROM invoice), (SELECT sid FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accpassword = $1 AND defaultaddress = true));", [acc]);
+	// Create the realetionship between the Invoice and the Credit Card
+	client.query("INSERT INTO paid_with VALUES((SELECT max(invoiceid) FROM invoice), (SELECT cid FROM account NATURAL JOIN billed NATURAL JOIN credit_card WHERE accpassword = $1 AND defaultcard = true));", [acc]);
 	// Create the realetionship between the Account and the Invoice
 	client.query("INSERT INTO keeps VALUES((SELECT max(invoiceid) FROM invoice), (SELECT accid FROM account WHERE accusername = $1));", [username]);
 	// Create the relationship between the Item and the Invoice
 	client.query("INSERT INTO of VALUES((SELECT max(invoiceid) FROM invoice), $1, 1);", [itemid]);
+	// Update the amount left for the item
 	client.query("UPDATE item SET amount = amount - (SELECT itemquantity FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE account.accid = (SELECT accid FROM account WHERE accusername = $1) AND invoice.invoiceid = (SELECT max(invoiceid) FROM invoice) AND item.itemid = $2) WHERE item.itemid = $2", [username, itemid]);
 	// Set active state of bid event false
 	client.query("update bid_event set active=false from item natural join participates where item.itemid=$1 and bid_event.eventid=participates.eventid",[itemid]);

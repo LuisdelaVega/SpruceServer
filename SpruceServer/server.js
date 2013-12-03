@@ -394,7 +394,7 @@ app.get('/SpruceServer/home/', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM item ORDER BY views DESC LIMIT 5"
+		text : "SELECT * FROM item WHERE (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp ORDER BY views DESC LIMIT 5"
 	});
 
 	query.on("row", function(row, result) {
@@ -419,7 +419,7 @@ app.get('/SpruceServer/Spruce/PopularNow/', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM item WHERE amount > 0 ORDER BY views DESC"
+		text : "SELECT * FROM item WHERE (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp ORDER BY views DESC"
 	});
 
 	query.on("row", function(row, result) {
@@ -436,7 +436,7 @@ app.get('/SpruceServer/Spruce/PopularNow/', function(req, res) {
 
 });
 
-//Search
+// Global search
 app.get('/SpruceServer/searchpage/:parameter', function(req, res) {
 	console.log("GET " + req.url);
 	var parameter = req.params.parameter;
@@ -444,7 +444,7 @@ app.get('/SpruceServer/searchpage/:parameter', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM item WHERE itemname ILIKE '%" + parameter + "%'"
+		text : "SELECT * FROM item WHERE itemname ILIKE '%" + parameter + "%' AND (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp"
 	});
 	query.on("row", function(row, result) {
 		result.addRow(row);
@@ -474,12 +474,12 @@ app.get('/SpruceServer/getItemsForCategory/:category/:orderby/:offset', function
 	var query;
 	if (orderby[0] == "none") {
 		query = client.query({
-			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE (amount > 0 OR restock = true) AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1 offset $2)",
+			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1 offset $2)",
 			values : [categoryId, offset]
 		});
 	} else {
 		query = client.query({
-			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE (amount > 0 OR restock = true) AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1) ORDER BY " + orderby[0] + " " + orderby[1] + " OFFSET $2",
+			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1) ORDER BY " + orderby[0] + " " + orderby[1] + " OFFSET $2",
 			values : [categoryId, offset]
 		});
 	}
@@ -654,7 +654,7 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 
 	} else if (req.params.select == 'selling') {
 		var query = client.query({
-			text : "SELECT item.* FROM account NATURAL JOIN sells NATURAL JOIN item WHERE account.accpassword = $1 AND (item.amount > 0 OR item.restock = true)",
+			text : "SELECT item.* FROM account NATURAL JOIN sells NATURAL JOIN item WHERE account.accpassword = $1 AND (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp",
 			values : [req.body.acc]
 		});
 		query.on("row", function(row, result) {
@@ -709,7 +709,7 @@ app.put('/SpruceServer/getProduct/:id', function(req, res) {
 		// Is a user check cart for quantity
 		if (req.body.password != null) {
 			var query2 = client.query({
-				text : "select quantity from account natural join belongs_to natural join cart natural join contains where itemid=$1 and accpassword=$2",
+				text : "SELECT quantity FROM account NATURAL JOIN belongs_to NATURAL JOIN cart NATURAL JOIN contains WHERE itemid = $1 AND accpassword = $2",
 				values : [id, req.body.password]
 			});
 			query2.on("row", function(row3, result3) {
@@ -730,7 +730,7 @@ app.put('/SpruceServer/getProduct/:id', function(req, res) {
 		} else {
 			// Is a guest check cart for quantity
 			var query2 = client.query({
-				text : "select quantity from guest natural join has natural join cart natural join contains where itemid=$1 and guestid=$2",
+				text : "SELECT quantity FROM guest NATURAL JOIN has NATURAL JOIN cart NATURAL JOIN contains WHERE itemid = $1 AND guestid = $2",
 				values : [id, req.body.gid]
 			});
 			query2.on("row", function(row3, result3) {
@@ -760,7 +760,7 @@ app.get('/SpruceServer/getProduct/:id', function(req, res) {
 	client.query("BEGIN");
 	// Get item with its bid event if bid event can be null (left outer join) this will facilitate the app
 	var query = client.query({
-		text : "select item.*,bid_event.*,account.accusername,account.accrating from account natural join sells natural join item left outer join participates on (item.itemid=participates.itemid) left outer join bid_event on (bid_event.eventid=participates.eventid)  where item.itemid=$1",
+		text : "SELECT item.*, bid_event.*, account.accusername, account.accrating FROM account NATURAL JOIN sells NATURAL JOIN item LEFT OUTER JOIN participates ON (item.itemid = participates.itemid) LEFT OUTER JOIN bid_event ON (bid_event.eventid = participates.eventid) WHERE item.itemid = $1",
 		values : [id]
 	});
 	query.on("row", function(row, result) {
@@ -805,7 +805,7 @@ app.get('/SpruceServer/seller-product-bids/:id', function(req, res) {
 	var client = new pg.Client(conString);
 	client.connect();
 	var query0 = client.query({
-		text : "SELECT accusername,bidprice FROM item NATURAL JOIN participates NATURAL JOIN bid_event NATURAL JOIN on_event NATURAL JOIN bid NATURAL JOIN places NATURAL JOIN account WHERE itemid=$1 ORDER BY bidprice desc",
+		text : "SELECT accusername, bidprice FROM item NATURAL JOIN participates NATURAL JOIN bid_event NATURAL JOIN on_event NATURAL JOIN bid NATURAL JOIN places NATURAL JOIN account WHERE itemid = $1 ORDER BY bidprice DESC",
 		values : [req.params.id],
 	});
 	query0.on("row", function(row, result) {
@@ -828,7 +828,7 @@ app.get('/SpruceServer/sellerprofile/:username', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM account natural join ships_to natural join saddress where accusername = $1",
+		text : "SELECT * FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accusername = $1",
 		values : [req.params.username]
 	});
 	query.on("row", function(row, result) {
@@ -854,7 +854,7 @@ app.put('/SpruceServer/mycart', function(req, res) {
 		var client = new pg.Client(conString);
 		client.connect();
 		var query = client.query({
-			text : "SELECT item.*,quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN has NATURAL JOIN guest WHERE guest.guestid = $1",
+			text : "SELECT item.*, quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN has NATURAL JOIN guest WHERE guest.guestid = $1",
 			values : [req.body.gid]
 		});
 		query.on("row", function(row, result) {
@@ -875,7 +875,7 @@ app.put('/SpruceServer/mycart', function(req, res) {
 		client.connect();
 
 		var query = client.query({
-			text : "SELECT item.*,quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
+			text : "SELECT item.*, quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
 			values : [req.body.acc]
 		});
 		query.on("row", function(row, result) {
@@ -902,14 +902,14 @@ app.put('/SpruceServer/addToCart/:itemid/:quantity', function(req, res) {
 		var client = new pg.Client(conString);
 		client.connect();
 		var query = client.query({
-			text : "BEGIN; INSERT into guest values(DEFAULT); INSERT INTO cart VALUES(DEFAULT); INSERT INTO has values((SELECT max(guestid) from guest),(SELECT max(cartid) from cart)); select max(cartid) as cartid,max(guestid) as guestid from cart,guest; COMMIT;"
+			text : "BEGIN; INSERT INTO guest VALUES(DEFAULT); INSERT INTO cart VALUES(DEFAULT); INSERT INTO has VALUES((SELECT max(guestid) FROM guest), (SELECT max(cartid) FROM cart)); SELECT max(cartid) as cartid, max(guestid) as guestid FROM cart, guest; COMMIT;"
 		});
 		query.on("row", function(row, result) {
 			result.addRow(row);
 		});
 		query.on("end", function(result) {
 			var query1 = client.query({
-				text : "insert into contains values ($1,$2,$3)",
+				text : "INSERT INTO contains VALUES($1,$2,$3)",
 				values : [result.rows[0]['cartid'], itemid, quantity]
 			});
 			query1.on("end", function(result2) {
@@ -927,7 +927,7 @@ app.put('/SpruceServer/addToCart/:itemid/:quantity', function(req, res) {
 			var client = new pg.Client(conString);
 			client.connect();
 			var query = client.query({
-				text : "insert into contains select cartid,$1,$2 from guest natural join has natural join cart where guestid=$3",
+				text : "INSERT INTO contains SELECT cartid,$1,$2 from guest natural join has natural join cart where guestid=$3",
 				values : [itemid, quantity, req.body.gid]
 			});
 			query.on("end", function(result) {
@@ -944,7 +944,7 @@ app.put('/SpruceServer/addToCart/:itemid/:quantity', function(req, res) {
 			var client = new pg.Client(conString);
 			client.connect();
 			var query = client.query({
-				text : "insert into contains select cartid,$1,$2 from account natural join belongs_to natural join cart where accpassword=$3",
+				text : "INSERT INTO contains SELECT cartid, $1, $2 FROM account NATURAL JOIN belongs_to NATURAL JOIN cart WHERE accpassword = $3",
 				values : [itemid, quantity, req.body.password]
 			});
 			query.on("end", function(result) {
@@ -970,7 +970,7 @@ app.put('/SpruceServer/updateToCart/:itemid/:quantity', function(req, res) {
 		var client = new pg.Client(conString);
 		client.connect();
 		var query = client.query({
-			text : "update contains set quantity=$1 from guest natural join has natural join cart where itemid=$2 and guestid=$3",
+			text : "UPDATE contains SET quantity = $1 FROM guest NATURAL JOIN has NATURAL JOIN cart WHERE itemid = $2 AND guestid = $3",
 			values : [quantity, itemid, req.body.gid]
 		});
 		query.on("end", function(result) {
@@ -987,7 +987,7 @@ app.put('/SpruceServer/updateToCart/:itemid/:quantity', function(req, res) {
 		var client = new pg.Client(conString);
 		client.connect();
 		var query = client.query({
-			text : "update contains set quantity=$1 from account natural join belongs_to natural join cart where itemid=$2 and accpassword=$3",
+			text : "UPDATE contains SET quantity = $1 FROM account NATURAL JOIN belongs_to NATURAL JOIN cart WHERE itemid = $2 AND accpassword = $3",
 			values : [quantity, itemid, req.body.password]
 		});
 		query.on("end", function(result) {
@@ -1011,7 +1011,7 @@ app.put('/SpruceServer/deleteFromCart/:itemid', function(req, res) {
 		var client = new pg.Client(conString);
 		client.connect();
 		var query = client.query({
-			text : "delete from contains where cartid in ( select cartid from guest natural join has natural join cart where guestid=$1) and itemid=$2",
+			text : "DELETE FROM contains WHERE cartid in (SELECT cartid FROM guest NATURAL JOIN has NATURAL JOIN cart WHERE guestid = $1) AND itemid = $2",
 			values : [req.body.gid, itemid]
 		});
 		query.on("end", function(result) {
@@ -1135,66 +1135,31 @@ app.put('/SpruceServer/generateInvoice/cart', function(req, res) {
 	var acc = req.body.acc;
 	var total = req.body.total;
 
-	var query0 = client.query({// Get the accid
-		text : "SELECT accid FROM account WHERE accpassword = $1",
+	client.query("BEGIN;");
+	// Create the new invoice
+	client.query("INSERT INTO invoice VALUES(DEFAULT, current_timestamp, $1);", [total]);
+	// Create the realetionship between the Account and the Invoice
+	client.query("INSERT INTO keeps VALUES((SELECT max(invoiceid) FROM invoice), (SELECT accid FROM account WHERE accpassword = $1));", [acc]);
+	// Get the items in the cart
+	var query = client.query({
+		text : "SELECT item.*, quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
 		values : [acc]
 	});
-	query0.on("row", function(row, result0) {
-		result0.addRow(row);
+	query.on("row", function(row, result) {
+		result.addRow(row);
 	});
-	query0.on("end", function(result0) {
-		var query = client.query({// Get the items in the cart
-			text : "SELECT item.*, quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
-			values : [acc]
-		});
-		query.on("row", function(row, result) {
-			result.addRow(row);
-		});
-		query.on("end", function(result) {
-			var query1 = client.query({// Create the invoice
-				text : "INSERT INTO invoice VALUES(DEFAULT, current_timestamp, $1)",
-				values : [total]
-			});
-			query1.on("row", function(row, result1) {
-				result1.addRow(row);
-			});
-			query1.on("end", function(result1) {
-				var query4 = client.query({// Get the last invoice created
-					text : "SELECT max(invoiceid) as invid FROM invoice"
-				});
-				query4.on("row", function(row, result4) {
-					result4.addRow(row);
-				});
-				query4.on("end", function(result4) {
-					var query2 = client.query({// Create the relationshipp between the invoice and the account
-						text : "INSERT INTO keeps VALUES($1, $2)",
-						values : [result4.rows[0].invid, result0.rows[0].accid]
-					});
-					query2.on("row", function(row, result2) {
-						result2.addRow(row);
-					});
-					query2.on("end", function(result2) {
-						for (var i = 0; i < result.rows.length; i++) {
-							var query3 = client.query({// Create the relationship between invoice and the items bought
-								text : "INSERT INTO of VALUES($1, $2, $3)",
-								values : [result4.rows[0].invid, result.rows[i].itemid, result.rows[i].quantity]
-							});
-							query3.on("row", function(row, result3) {
-								result3.addRow(row);
-							});
-							query3.on("end", function(result3) {
-								if (i + 1 == result.rows.length) {
-									client.end();
-								}
-							});
-						}
-					});
-				});
-
-			});
-
-		});
+	query.on("end", function(result) {
+		for (var i = 0; i < result.rows.length; i++) {
+			// Create the relationship between the Item and the Invoice
+			client.query("INSERT INTO of VALUES((SELECT max(invoiceid) FROM invoice), $1, $2);", [result.rows[i].itemid, result.rows[i].quantity]);
+			client.query("UPDATE item SET amount = amount - (SELECT itemquantity FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE account.accid = (SELECT accid FROM account WHERE accpassword = $1) AND invoice.invoiceid = (SELECT max(invoiceid) FROM invoice) AND item.itemid = $2) WHERE item.itemid = $2", [acc, result.rows[i].itemid]);
+			if (i + 1 == result.rows.length) {
+				client.query("DELETE FROM contains WHERE cartid = (SELECT cartid FROM account NATURAL JOIN belongs_to WHERE accpassword = $1)", [acc]);
+				client.query("COMMIT;");
+			}
+		}
 	});
+	
 	var response = {
 		"success" : true
 	};
@@ -1210,7 +1175,7 @@ app.put('/SpruceServer/generateInvoice/buyitnow', function(req, res) {
 	var total = req.body.total;
 	var itemid = req.body.itemid;
 	var quantity = req.body.quantity;
-	
+
 	client.query("BEGIN;");
 	// Create the new invoice
 	client.query("INSERT INTO invoice VALUES(DEFAULT, current_timestamp, $1);", [total]);
@@ -1218,6 +1183,7 @@ app.put('/SpruceServer/generateInvoice/buyitnow', function(req, res) {
 	client.query("INSERT INTO keeps VALUES((SELECT max(invoiceid) FROM invoice), (SELECT accid FROM account WHERE accpassword = $1));", [acc]);
 	// Create the relationship between the Item and the Invoice
 	client.query("INSERT INTO of VALUES((SELECT max(invoiceid) FROM invoice), $1, $2);", [itemid, quantity]);
+	client.query("UPDATE item SET amount = amount - (SELECT itemquantity FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE account.accid = (SELECT accid FROM account WHERE accpassword = $1) AND invoice.invoiceid = (SELECT max(invoiceid) FROM invoice) AND item.itemid = $2) WHERE item.itemid = $2", [acc, itemid]);
 	client.query("COMMIT;");
 
 	var response = {
@@ -1235,7 +1201,7 @@ app.put('/SpruceServer/getUserStore', function(req, res) {
 	console.log(req.body.accusername);
 
 	var query = client.query({
-		text : "SELECT item.* FROM account NATURAL JOIN sells NATURAL JOIN item WHERE account.accusername = $1 AND (item.amount > 0 OR item.restock = true)",
+		text : "SELECT item.* FROM account NATURAL JOIN sells NATURAL JOIN item WHERE account.accusername = $1 AND (item.amount > 0 OR item.restock = true) AND item_end_date > current_timestamp",
 		values : [req.body.accusername]
 	});
 	query.on("row", function(row, result) {
@@ -1320,7 +1286,7 @@ app.put('/SpruceServer/rateUser/:accid/:rating', function(req, res) {
 		// If no rating are found insert it
 		if (result.rows.length == 0) {
 			client.query("BEGIN");
-			client.query("insert into rating select $1,accid,$2,$3 from account where accpassword=$4", [req.params.accid, req.params.rating,req.body.comment, req.body.password]);
+			client.query("insert into rating select $1,accid,$2,$3 from account where accpassword=$4", [req.params.accid, req.params.rating, req.body.comment, req.body.password]);
 			client.query("update account set accrating = (select sum(rating) from rating where seller=$1)/(select count(*) from rating where seller=$1) where accid =$1", [req.params.accid], function(err, result) {
 				if (err) {
 					var response = {
@@ -1341,7 +1307,7 @@ app.put('/SpruceServer/rateUser/:accid/:rating', function(req, res) {
 		// Else update current rating
 		else {
 			client.query("BEGIN");
-			client.query("update rating set rating=$1,comment=$2 where customer=$3 and seller=$4", [req.params.rating,req.body.comment, result.rows[0]['customer'], req.params.accid]);
+			client.query("update rating set rating=$1,comment=$2 where customer=$3 and seller=$4", [req.params.rating, req.body.comment, result.rows[0]['customer'], req.params.accid]);
 			client.query("update account set accrating = (select sum(rating) from rating where seller=$1)/(select count(*) from rating where seller=$1) where accid =$1", [req.params.accid], function(err, result) {
 				if (err) {
 					var response = {

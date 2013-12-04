@@ -50,6 +50,89 @@ var allowCrossDomain = function(req, res, next) {
 // c) PUT - Update an individual object, or collection  (Database update operation)
 // d) DELETE - Remove an individual object, or collection (Database delete operation)
 
+app.get('/SpruceServer/addCreditCardInfo/:username/:name/:number/:expmonth/:expyear/:csc/:type/:street/:city/:state/:country/:zip', function(req, res) {
+	console.log("GET " + req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var username = req.body.username;
+	
+	client.query("BEGIN;");
+	
+	var query = client.query({	
+		text : "INSERT INTO credit_card VALUES (DEFAULT, $1, $2, $3, $4, $5, $6)",
+		values : [req.params.number, req.params.name, req.params.type, req.params.expmonth, req.params.expyear, req.params.csc]
+	});
+	
+	var query = client.query({	
+		text : "INSERT INTO baddress VALUES (DEFAULT, $1, $2, $3, $4, $5)",
+		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
+	});
+	
+	var query = client.query({	
+		text : "INSERT INTO billed VALUES((SELECT accid FROM account where accusername = $1), (SELECT max(cid) FROM credit_card));",
+		values : [req.params.username]
+	});
+	
+	var query = client.query({	
+		text : "INSERT INTO bills_to VALUES((SELECT max(cid) FROM credit_card), (SELECT max(bid) FROM baddress));",
+	});
+	
+	client.query("COMMIT;");
+	
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var flag = result.rows.length > 0;
+		var response = {
+			"success" : flag
+		};
+		console.log(result);
+		console.log(flag);
+		client.end();
+		res.json(response);
+	});
+});
+
+app.get('/SpruceServer/addAdminShippingAddress/:id/:street/:city/:state/:country/:zip', function(req, res) {
+	console.log("GET " + req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var username = req.body.username;
+	
+	client.query("BEGIN;");
+	
+	var query = client.query({	
+		text : "INSERT INTO saddress VALUES (DEFAULT, $1, $2, $3, $4, $5)",
+		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
+	});
+	
+	var query = client.query({	
+		text : "INSERT INTO ships_to VALUES((select accid from account where accusername = $1), (select max(sid) from saddress))",
+		values : [req.params.id]
+	});
+	
+	client.query("COMMIT;");
+	
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var flag = result.rows.length > 0;
+		var response = {
+			"success" : flag
+		};
+		console.log(result);
+		console.log(flag);
+		client.end();
+		res.json(response);
+	});
+});
+
 app.put('/SpruceServer/editaccphoto/:username', function(req, res) {
 	console.log("GET " + req.url);
 	

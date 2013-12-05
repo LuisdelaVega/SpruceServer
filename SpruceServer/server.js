@@ -50,6 +50,197 @@ var allowCrossDomain = function(req, res, next) {
 // c) PUT - Update an individual object, or collection  (Database update operation)
 // d) DELETE - Remove an individual object, or collection (Database delete operation)
 
+app.put('/SpruceServer/addUserCreditCardInfo/:name/:number/:expmonth/:expyear/:csc/:type/:street/:city/:state/:country/:zip', function(req, res) {
+	console.log("PUT" + req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password;
+	
+	client.query("BEGIN;");
+	
+	var query = client.query({	
+		text : "INSERT INTO credit_card VALUES (DEFAULT, $1, $2, $3, $4, $5, $6)",
+		values : [req.params.number, req.params.name, req.params.type, req.params.expmonth, req.params.expyear, req.params.csc]
+	});
+	
+	var query = client.query({	
+		text : "INSERT INTO baddress VALUES (DEFAULT, $1, $2, $3, $4, $5)",
+		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
+	});
+	
+	var query = client.query({	
+		text : "INSERT INTO billed VALUES((SELECT accid FROM account where accpassword = $1), (SELECT max(cid) FROM credit_card));",
+		values : [password]
+	});
+	
+	var query = client.query({	
+		text : "INSERT INTO bills_to VALUES((SELECT max(cid) FROM credit_card), (SELECT max(bid) FROM baddress));",
+	});
+	
+	client.query("COMMIT;");
+	
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var flag = result.rows.length > 0;
+		var response = {
+			"success" : flag
+		};
+		console.log(result);
+		console.log(flag);
+		client.end();
+		res.json(response);
+	});
+});
+
+app.put('/SpruceServer/addUserShippingAddress/:street/:city/:state/:country/:zip', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password;
+	var id = req.params.id;
+	console.log(id);
+	client.query("BEGIN;");
+	
+	var query = client.query({	
+		text : "INSERT INTO saddress VALUES (DEFAULT, $1, $2, $3, $4, $5)",
+		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
+	});
+	
+	var query = client.query({	
+		text : "INSERT INTO ships_to VALUES((select accid from account where accpassword = $1), (select max(sid) from saddress))",
+		values : [password]
+	});
+	
+	client.query("COMMIT;");
+	query.on("end", function(result) {
+		var response = {
+			"success" : true
+		};
+		console.log(result);
+		client.end();
+		res.json(response);
+	});
+});
+
+app.put('/SpruceServer/changeUserShippingAddress/:street/:city/:state/:country/:zip/:id', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password;
+	var id = req.params.id;
+	console.log(id);
+	var query = client.query({	
+		text : "UPDATE saddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where sid = $6 ",
+		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id]
+	});
+	query.on("end", function(result) {
+		var response = {
+			"success" : true
+		};
+		console.log(result);
+		client.end();
+		res.json(response);
+	});
+});
+
+app.put('/SpruceServer/changeUserBillingAddress/:street/:city/:state/:country/:zip/:id', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password;
+	var id = req.params.id.split("-");
+	console.log(id);
+	var query = client.query({	
+		text : "UPDATE baddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where bid = $6 ",
+		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id[1]]
+	});
+	query.on("end", function(result) {
+		var response = {
+			"success" : true
+		};
+		console.log(result);
+		client.end();
+		res.json(response);
+	});
+});
+
+app.put('/SpruceServer/editGeneralInfo/:fname/:lname/:email/:phone', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password;
+	
+	var query = client.query({
+		text : "UPDATE account SET accfname = $2, acclname = $3, accemail = $4, accphonenum = $5 where accpassword = $1",
+		values : [password, req.params.fname, req.params.lname, req.params.email, req.params.phone]
+	});
+	query.on("end", function(result) {
+		var response = {
+			"success" : true
+		};
+		console.log(result);
+		client.end();
+		res.json(response);
+	});
+});
+
+app.put('/SpruceServer/editUserPhoto/:link', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	link = "http://imgur.com/"+req.params.link+".png";
+	var password = req.body.password;
+
+	var query = client.query({	
+		text : "UPDATE account SET accphoto = $1 WHERE accpassword = $2",
+		values : [link, password]
+	});
+	query.on("end", function(result) {
+		var response = {
+			"success" : true
+		};
+		console.log(result);
+		client.end();
+		res.json(response);
+	});
+});
+
+app.put('/SpruceServer/changeUserUsername/:username', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var password = req.body.password;
+
+	var query = client.query({	
+		text : "UPDATE account SET accusername = $1 WHERE accpassword = $2",
+		values : [req.params.username, password]
+	});
+	query.on("end", function(result) {
+		var response = {
+			"success" : true
+		};
+		console.log(result);
+		client.end();
+		res.json(response);
+	});
+});
+
 app.get('/SpruceServer/addCreditCardInfo/:username/:name/:number/:expmonth/:expyear/:csc/:type/:street/:city/:state/:country/:zip', function(req, res) {
 	console.log("GET " + req.url);
 

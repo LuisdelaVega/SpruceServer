@@ -682,7 +682,7 @@ app.put('/SpruceServer/sellitem', function(req, res) {
 		// Associate item with its category
 		client.query("INSERT INTO describe VALUES((SELECT max(itemid) from item),$1)", [category]);
 		// Create bid event, end date is 7 days from todaybhzseeeeeeeeeeeegettttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt z (kittiy was here)
-		client.query("INSERT INTO bid_event VALUES(DEFAULT,0)");
+		client.query("INSERT INTO bid_event VALUES(DEFAULT,0,true)");
 		client.query("INSERT INTO participates VALUES((SELECT max(itemid) FROM item),(SELECT max(eventid) FROM bid_event))");
 		// Associate seller with item
 		client.query("INSERT INTO sells VALUES((select max(itemid) from item),(SELECT accid from account where accpassword=$1))", [password]);

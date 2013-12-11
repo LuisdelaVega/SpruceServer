@@ -2236,6 +2236,55 @@ app.get('/SpruceServer/myadmintools/users', function(req, res) {
 	});
 });
 
+app.get('/SpruceServer/myadmintools/category/:cat/:sub', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+	client.query("BEGIN");
+	client.query("INSERT INTO category VALUES(DEFAULT,$1)", [req.params.cat]);
+	client.query("INSERT INTO category VALUES(DEFAULT,$1)", [req.params.sub]);
+	client.query("INSERT INTO subcat VALUES(((SELECT max(catid) FROM category)-1),(SELECT max(catid) FROM category))", function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
+	});
+});
+
+app.get('/SpruceServer/myadmintools/subcategory/:cat/:sub', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+	client.query("BEGIN");
+	client.query("INSERT INTO category VALUES(DEFAULT,$1)", [req.params.sub]);
+	client.query("INSERT INTO subcat VALUES($1,(SELECT max(catid) FROM category))",[req.params.cat], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
+	});
+});
+
 app.get('/SpruceServer/admineditshipping/:user/:id', function(req, res) {
 	console.log("GET " + req.url);
 	var client = new pg.Client(conString);

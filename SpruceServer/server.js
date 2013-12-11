@@ -629,14 +629,22 @@ app.put('/SpruceServer/signup', function(req, res) {
 	var expMonth = req.body.expMonth;
 	var expYear = req.body.expYear;
 	var csc = req.body.csc;
+	var gid = req.body.gid;
 
 	client.query("BEGIN;");
 	// Create the new account
 	client.query("INSERT INTO account VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9);", [fname, lname, username, password, rating, photo, phone, email, slt]);
-	// Create the new cart
-	client.query("INSERT INTO cart VALUES(DEFAULT);");
-	// Set the relationship between the account and its cart
-	client.query("INSERT INTO belongs_to VALUES((SELECT max(accid) FROM account), (SELECT max(cartid) FROM cart));");
+	if ( typeof gid == 'undefined') {
+		// Create the new cart
+		client.query("INSERT INTO cart VALUES(DEFAULT);");
+		// Set the relationship between the account and its cart
+		client.query("INSERT INTO belongs_to VALUES((SELECT max(accid) FROM account), (SELECT max(cartid) FROM cart));");
+	}
+	else{
+		client.query("INSERT INTO belongs_to VALUES((SELECT max(accid) FROM account), (SELECT cartid FROM cart NATURAL JOIN has NATURAL JOIN guest WHERE guestid=$1));",[gid]);
+		client.query("DELETE FROM guest WHERE guestid=$1));",[gid]);
+		client.query("DELETE FROM has WHERE guestid=$1));",[gid]);
+	}
 	// Create the new credit_card
 	client.query("INSERT INTO credit_card VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, true);", [cardNumber, cardholderName, card, expMonth, expYear, csc]);
 	// Set the relationship between he newly created account and its credit card
@@ -1338,13 +1346,14 @@ app.get('/SpruceServer/sellerprofile/:username', function(req, res) {
 //REST for cart
 app.put('/SpruceServer/mycart', function(req, res) {
 	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+	client.query("BEGIN");
+	client.query("DELETE FROM contains WHERE itemid in(SELECT itemid FROM item WHERE amount < 1 OR item_end_date < current_timestamp )");
 	//Its a guest so find guest cart
 	if (req.body.acc == null) {
 		console.log("Is a guest");
 		console.log("Cart for guest: " + req.body.gid);
-		var client = new pg.Client(conString);
-		client.connect();
-		client.query("BEGIN; DELETE FROM contains WHERE amount < 1 OR item_end_date < current_timestamp");
 		var query = client.query({
 			text : "SELECT item.*, quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN has NATURAL JOIN guest WHERE guest.guestid = $1;",
 			values : [req.body.gid]
@@ -1364,9 +1373,6 @@ app.put('/SpruceServer/mycart', function(req, res) {
 	//Its a user get user cart
 	else {
 		console.log("Cart for account: " + req.body.acc);
-		var client = new pg.Client(conString);
-		client.connect();
-
 		var query = client.query({
 			text : "SELECT item.*, quantity FROM cart NATURAL JOIN contains NATURAL JOIN item NATURAL JOIN belongs_to NATURAL JOIN account WHERE account.accpassword = $1",
 			values : [req.body.acc]
@@ -1375,6 +1381,7 @@ app.put('/SpruceServer/mycart', function(req, res) {
 			result.addRow(row);
 		});
 		query.on("end", function(result) {
+			client.query("COMMIT;");
 			var response = {
 				"cart" : result.rows
 			};

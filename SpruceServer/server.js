@@ -639,11 +639,10 @@ app.put('/SpruceServer/signup', function(req, res) {
 		client.query("INSERT INTO cart VALUES(DEFAULT);");
 		// Set the relationship between the account and its cart
 		client.query("INSERT INTO belongs_to VALUES((SELECT max(accid) FROM account), (SELECT max(cartid) FROM cart));");
-	}
-	else{
-		client.query("INSERT INTO belongs_to VALUES((SELECT max(accid) FROM account), (SELECT cartid FROM cart NATURAL JOIN has NATURAL JOIN guest WHERE guestid=$1));",[gid]);
-		client.query("DELETE FROM guest WHERE guestid=$1));",[gid]);
-		client.query("DELETE FROM has WHERE guestid=$1));",[gid]);
+	} else {
+		client.query("INSERT INTO belongs_to VALUES((SELECT max(accid) FROM account), (SELECT cartid FROM cart NATURAL JOIN has NATURAL JOIN guest WHERE guestid=$1));", [gid]);
+		client.query("DELETE FROM has WHERE guestid=$1;", [gid]);
+		client.query("DELETE FROM guest WHERE guestid=$1;", [gid]);
 	}
 	// Create the new credit_card
 	client.query("INSERT INTO credit_card VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, true);", [cardNumber, cardholderName, card, expMonth, expYear, csc]);
@@ -2274,7 +2273,33 @@ app.get('/SpruceServer/myadmintools/subcategory/:cat/:sub', function(req, res) {
 	client.connect();
 	client.query("BEGIN");
 	client.query("INSERT INTO category VALUES(DEFAULT,$1)", [req.params.sub]);
-	client.query("INSERT INTO subcat VALUES($1,(SELECT max(catid) FROM category))",[req.params.cat], function(err, result) {
+	client.query("INSERT INTO subcat VALUES($1,(SELECT max(catid) FROM category))", [req.params.cat], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
+	});
+});
+
+app.get('/SpruceServer/myadmintools/removecategory/:cat', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+	client.query("BEGIN");
+	// Borra la categoria de la tabla category y su relation con sus subcategoria mas cercanas
+	client.query("DELETE FROM category WHERE catid=$1", [req.params.cat]);
+	// Borra las categorias que se quedaron sin relacion
+	client.query("DELETE FROM category WHERE catid NOT IN (SELECT catid FROM subcat) AND catid NOT IN (SELECT subcatid FROM subcat)", function(err, result) {
 		if (err) {
 			var response = {
 				"success" : false

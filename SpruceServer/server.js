@@ -35,6 +35,62 @@ var conString = "pg://postgres:post123@localhost:5432/SpruceDB";
 // c) PUT - Update an individual object, or collection  (Database update operation)
 // d) DELETE - Remove an individual object, or collection (Database delete operation)
 
+
+app.put('/SpruceServer/makedefaultsaddress/:sid', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	client.query("BEGIN;");
+	
+	var query = client.query({	
+		text : "update saddress set defaultsaddress = false where sid in (select sid from saddress natural join ships_to natural join account where accpassword = $1)",
+		values : [req.body.password]
+	});
+	
+	var query = client.query({	
+		text : "update saddress set defaultsaddress = true where sid = $1",
+		values : [req.params.sid]
+	});
+	
+	client.query("COMMIT;");
+	
+	query.on("end", function(result) {
+		var flag = result.rows.length > 0;
+		var response = {
+			"success" : flag
+		};
+		console.log(result);
+		console.log(flag);
+		client.end();
+		res.json(response);
+	});
+});
+
+app.get('/SpruceServer/deleteusershipping/:sid', function(req, res) {
+	console.log("GET " + req.url);
+	
+	var client = new pg.Client(conString);
+	client.connect();
+	
+	var query = client.query({	
+		text : "update saddress set activesaddress = false where sid = $1",
+		values : [req.params.sid]
+	});
+	
+	query.on("end", function(result) {
+		var flag = result.rows.length > 0;
+		var response = {
+			"success" : flag
+		};
+		console.log(result);
+		console.log(flag);
+		client.end();
+		res.json(response);
+	});
+});
+
 app.put('/SpruceServer/addUserCreditCardInfo/:name/:number/:expmonth/:expyear/:csc/:type/:street/:city/:state/:country/:zip', function(req, res) {
 	console.log("PUT" + req.url);
 
@@ -90,25 +146,23 @@ app.put('/SpruceServer/addUserShippingAddress/:street/:city/:state/:country/:zip
 	client.query("BEGIN;");
 	
 	var query = client.query({	
-		text : "INSERT INTO saddress VALUES (DEFAULT, $1, $2, $3, $4, $5)",
+		text : "INSERT INTO saddress VALUES (DEFAULT, $1, $2, $3, $4, $5, true, false)",
 		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
 	});
-
-	client.query("INSERT INTO ships_to VALUES((select accid from account where accpassword = $1), (select max(sid) from saddress))", [password], function(err, result) {
-		if (err) {
-			var response = {
-				"success" : false
-			};
-			client.end();
-			res.json(response);
-		} else {
-			client.query("COMMIT");
-			var response = {
-				"success" : true
-			};
-			client.end();
-			res.json(response);
-		}
+	
+	var query = client.query({	
+		text : "INSERT INTO ships_to VALUES((select accid from account where accpassword = $1), (select max(sid) from saddress))",
+		values : [password]
+	});
+	
+	client.query("COMMIT;");
+	query.on("end", function(result) {
+		var response = {
+			"success" : true
+		};
+		console.log(result);
+		client.end();
+		res.json(response);
 	});
 });
 
@@ -294,25 +348,29 @@ app.get('/SpruceServer/addAdminShippingAddress/:id/:street/:city/:state/:country
 	client.query("BEGIN;");
 	
 	var query = client.query({	
-		text : "INSERT INTO saddress VALUES (DEFAULT, $1, $2, $3, $4, $5)",
+		text : "INSERT INTO saddress VALUES (DEFAULT, $1, $2, $3, $4, $5, true, false)",
 		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
 	});
-
-	client.query("INSERT INTO ships_to VALUES((select accid from account where accusername = $1), (select max(sid) from saddress))", [req.params.id], function(err, result) {
-		if (err) {
-			var response = {
-				"success" : false
-			};
-			client.end();
-			res.json(response);
-		} else {
-			client.query("COMMIT");
-			var response = {
-				"success" : true
-			};
-			client.end();
-			res.json(response);
-		}
+	
+	var query = client.query({	
+		text : "INSERT INTO ships_to VALUES((select accid from account where accusername = $1), (select max(sid) from saddress))",
+		values : [req.params.id]
+	});
+	
+	client.query("COMMIT;");
+	
+	query.on("row", function(row, result) {
+		result.addRow(row);
+	});
+	query.on("end", function(result) {
+		var flag = result.rows.length > 0;
+		var response = {
+			"success" : flag
+		};
+		console.log(result);
+		console.log(flag);
+		client.end();
+		res.json(response);
 	});
 });
 
@@ -685,7 +743,7 @@ app.put('/SpruceServer/signup', function(req, res) {
 	// Set the relationship between he newly created account and its credit card
 	client.query("INSERT INTO billed VALUES((SELECT max(accid) FROM account), (SELECT max(cid) FROM credit_card));");
 	// Create the new saddress
-	client.query("INSERT INTO saddress VALUES(DEFAULT, $1, $2, $3, $4, $5, true,false);", [saddresLine, scity, sstate, scountry, szip]);
+	client.query("INSERT INTO saddress VALUES(DEFAULT, $1, $2, $3, $4, $5, true, true);", [saddresLine, scity, sstate, scountry, szip]);
 	// Create the relationship between the account and the Shipping address
 	client.query("INSERT INTO ships_to VALUES((SELECT max(accid) FROM account), (SELECT max(sid) FROM saddress));");
 	// Create the new Billing address
@@ -2165,7 +2223,7 @@ app.put('/SpruceServer/usershippinginfo', function(req, res) {
 	var password = req.body.password;
 
 	var query = client.query({
-		text : "SELECT saddress.* FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accpassword =$1",
+		text : "SELECT saddress.* FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accpassword =$1 AND activesaddress = true",
 		values : [password]
 	});
 	query.on("row", function(row, result) {

@@ -35,27 +35,26 @@ var conString = "pg://postgres:post123@localhost:5432/SpruceDB";
 // c) PUT - Update an individual object, or collection  (Database update operation)
 // d) DELETE - Remove an individual object, or collection (Database delete operation)
 
-
 app.put('/SpruceServer/makedefaultsaddress/:sid', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	client.query("BEGIN;");
-	
-	var query = client.query({	
+
+	var query = client.query({
 		text : "update saddress set defaultsaddress = false where sid in (select sid from saddress natural join ships_to natural join account where accpassword = $1)",
 		values : [req.body.password]
 	});
-	
-	var query = client.query({	
+
+	var query = client.query({
 		text : "update saddress set defaultsaddress = true where sid = $1",
 		values : [req.params.sid]
 	});
-	
+
 	client.query("COMMIT;");
-	
+
 	query.on("end", function(result) {
 		var flag = result.rows.length > 0;
 		var response = {
@@ -70,15 +69,15 @@ app.put('/SpruceServer/makedefaultsaddress/:sid', function(req, res) {
 
 app.get('/SpruceServer/deleteusershipping/:sid', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
-	var query = client.query({	
+
+	var query = client.query({
 		text : "update saddress set activesaddress = false where sid = $1",
 		values : [req.params.sid]
 	});
-	
+
 	query.on("end", function(result) {
 		var flag = result.rows.length > 0;
 		var response = {
@@ -96,22 +95,22 @@ app.put('/SpruceServer/addUserCreditCardInfo/:name/:number/:expmonth/:expyear/:c
 
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var password = req.body.password;
-	
+
 	client.query("BEGIN;");
 
 	var query = client.query({
 		text : "INSERT INTO credit_card VALUES (DEFAULT, $1, $2, $3, $4, $5, $6,false,false)",
 		values : [req.params.number, req.params.name, req.params.type, req.params.expmonth, req.params.expyear, req.params.csc]
 	});
-	
-	var query = client.query({	
+
+	var query = client.query({
 		text : "INSERT INTO baddress VALUES (DEFAULT, $1, $2, $3, $4, $5)",
 		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
 	});
-	
-	var query = client.query({	
+
+	var query = client.query({
 		text : "INSERT INTO billed VALUES((SELECT accid FROM account where accpassword = $1), (SELECT max(cid) FROM credit_card));",
 		values : [password]
 	});
@@ -136,14 +135,14 @@ app.put('/SpruceServer/addUserCreditCardInfo/:name/:number/:expmonth/:expyear/:c
 
 app.put('/SpruceServer/addUserShippingAddress/:street/:city/:state/:country/:zip', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var password = req.body.password;
 	client.query("BEGIN;");
-	
-	var query = client.query({	
+
+	var query = client.query({
 		text : "INSERT INTO saddress VALUES (DEFAULT, $1, $2, $3, $4, $5, true, false)",
 		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
 	});
@@ -168,10 +167,10 @@ app.put('/SpruceServer/addUserShippingAddress/:street/:city/:state/:country/:zip
 
 app.put('/SpruceServer/changeUserShippingAddress/:street/:city/:state/:country/:zip/:id', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var password = req.body.password;
 	var id = req.params.id;
 	console.log(id);
@@ -194,10 +193,10 @@ app.put('/SpruceServer/changeUserShippingAddress/:street/:city/:state/:country/:
 
 app.put('/SpruceServer/changeUserBillingAddress/:street/:city/:state/:country/:zip/:id', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var password = req.body.password;
 	var id = req.params.id.split("-");
 	console.log(id);
@@ -220,10 +219,10 @@ app.put('/SpruceServer/changeUserBillingAddress/:street/:city/:state/:country/:z
 
 app.put('/SpruceServer/editGeneralInfo/:fname/:lname/:email/:phone', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var password = req.body.password;
 
 	client.query("UPDATE account SET accfname = $2, acclname = $3, accemail = $4, accphonenum = $5 where accpassword = $1", [password, req.params.fname, req.params.lname, req.params.email, req.params.phone], function(err, result) {
@@ -245,11 +244,11 @@ app.put('/SpruceServer/editGeneralInfo/:fname/:lname/:email/:phone', function(re
 
 app.put('/SpruceServer/editUserPhoto/:link', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
-	link = "http://imgur.com/"+req.params.link+".png";
+
+	link = "http://imgur.com/" + req.params.link + ".png";
 	var password = req.body.password;
 
 	client.query("UPDATE account SET accphoto = $1 WHERE accpassword = $2", [link, password], function(err, result) {
@@ -271,13 +270,13 @@ app.put('/SpruceServer/editUserPhoto/:link', function(req, res) {
 
 app.put('/SpruceServer/changeUserUsername/:username', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var password = req.body.password;
 
-	client.query("UPDATE account SET accusername = $1 WHERE accpassword = $2",[req.params.username,password], function(err, result) {
+	client.query("UPDATE account SET accusername = $1 WHERE accpassword = $2", [req.params.username, password], function(err, result) {
 		if (err) {
 			var response = {
 				"success" : false
@@ -299,22 +298,22 @@ app.get('/SpruceServer/addCreditCardInfo/:username/:name/:number/:expmonth/:expy
 
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var username = req.body.username;
-	
+
 	client.query("BEGIN;");
 
 	var query = client.query({
 		text : "INSERT INTO credit_card VALUES (DEFAULT, $1, $2, $3, $4, $5, $6,false,false)",
 		values : [req.params.number, req.params.name, req.params.type, req.params.expmonth, req.params.expyear, req.params.csc]
 	});
-	
-	var query = client.query({	
+
+	var query = client.query({
 		text : "INSERT INTO baddress VALUES (DEFAULT, $1, $2, $3, $4, $5)",
 		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
 	});
-	
-	var query = client.query({	
+
+	var query = client.query({
 		text : "INSERT INTO billed VALUES((SELECT accid FROM account where accusername = $1), (SELECT max(cid) FROM credit_card));",
 		values : [req.params.username]
 	});
@@ -342,23 +341,23 @@ app.get('/SpruceServer/addAdminShippingAddress/:id/:street/:city/:state/:country
 
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var username = req.body.username;
-	
+
 	client.query("BEGIN;");
-	
-	var query = client.query({	
+
+	var query = client.query({
 		text : "INSERT INTO saddress VALUES (DEFAULT, $1, $2, $3, $4, $5, true, false)",
 		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
 	});
-	
-	var query = client.query({	
+
+	var query = client.query({
 		text : "INSERT INTO ships_to VALUES((select accid from account where accusername = $1), (select max(sid) from saddress))",
 		values : [req.params.id]
 	});
-	
+
 	client.query("COMMIT;");
-	
+
 	query.on("row", function(row, result) {
 		result.addRow(row);
 	});
@@ -376,7 +375,7 @@ app.get('/SpruceServer/addAdminShippingAddress/:id/:street/:city/:state/:country
 
 app.put('/SpruceServer/editaccphoto/:username', function(req, res) {
 	console.log("GET " + req.url);
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
 	var photo = req.body.photo;
@@ -403,10 +402,10 @@ app.get('/SpruceServer/changeShippingAddressInfo/:id/:street/:city/:state/:count
 	console.log("GET " + req.url);
 
 	var id = req.params.id.split("-");
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var username = req.body.username;
 
 	client.query("UPDATE saddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where sid = $6 ", [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id[0]], function(err, result) {
@@ -430,10 +429,10 @@ app.get('/SpruceServer/changeCreditCardInfo/:username/:street/:city/:state/:coun
 	console.log("GET " + req.url);
 
 	var id = req.params.id.split("-");
-	
+
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var username = req.body.username;
 
 	client.query("UPDATE baddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where bid = $6 ", [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id[1]], function(err, result) {
@@ -459,7 +458,7 @@ app.get('/SpruceServer/changeGeneralInfo/:username/:fname/:lname/:email/:phone',
 
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var username = req.body.username;
 
 	client.query("UPDATE account SET accfname = $2, acclname = $3, accemail = $4, accphonenum = $5 where accusername = $1", [req.params.username, req.params.fname, req.params.lname, req.params.email, req.params.phone], function(err, result) {
@@ -485,7 +484,7 @@ app.get('/SpruceServer/changeUsername/:username/:changeto', function(req, res) {
 
 	var client = new pg.Client(conString);
 	client.connect();
-	
+
 	var username = req.body.username;
 
 	client.query("UPDATE account SET accusername = $2 where accusername = $1", [req.params.username, req.params.changeto], function(err, result) {
@@ -508,7 +507,7 @@ app.get('/SpruceServer/changeUsername/:username/:changeto', function(req, res) {
 
 app.put('/SpruceServer/defaultcreditcard/:id', function(req, res) {
 	console.log("GET " + req.url);
-	var id= req.params.id.split("-");
+	var id = req.params.id.split("-");
 	var client = new pg.Client(conString);
 	client.connect();
 	client.query("BEGIN");
@@ -562,7 +561,7 @@ app.put('/SpruceServer/authenticate1', function(req, res) {
 	console.log("Login: " + username);
 
 	var query = client.query({
-		text : "SELECT accslt FROM account WHERE accusername = $1",
+		text : "SELECT accslt FROM account WHERE activeaccount = true AND accusername = $1",
 		values : [username]
 	});
 	query.on("row", function(row, result) {
@@ -758,6 +757,35 @@ app.put('/SpruceServer/signup', function(req, res) {
 	res.json(response);
 });
 
+// REST for "deleting" accounts
+app.put('/SpruceServer/deleteuser/:username', function(req, res) {
+	console.log("PUT " + req.url);
+
+	var client = new pg.Client(conString);
+	client.connect();
+
+	var username = req.params.username;
+
+	client.query("BEGIN");
+	client.query("UPDATE account SET activeaccount = false WHERE accusername = $1", [username], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
+	});
+
+});
+
 // REST for selling item
 app.put('/SpruceServer/sellitem', function(req, res) {
 	console.log("PUT " + req.url);
@@ -903,7 +931,7 @@ app.get('/SpruceServer/home/', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM item WHERE item.amount > 0 AND item_end_date > current_timestamp ORDER BY views DESC LIMIT 3"
+		text : "SELECT * FROM item NATURAL JOIN sells NATURAL JOIN account WHERE activeaccount = true AND item.amount > 0 AND item_end_date > current_timestamp ORDER BY views DESC LIMIT 3"
 	});
 
 	query.on("row", function(row, result) {
@@ -928,7 +956,7 @@ app.get('/SpruceServer/Spruce/PopularNow/', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM item WHERE item.amount > 0 AND item_end_date > current_timestamp ORDER BY views DESC"
+		text : "SELECT * FROM item NATURAL JOIN sells NATURAL JOIN account WHERE activeaccount = true AND item.amount > 0 AND item_end_date > current_timestamp ORDER BY views DESC"
 	});
 
 	query.on("row", function(row, result) {
@@ -983,12 +1011,12 @@ app.get('/SpruceServer/getItemsForCategory/:category/:orderby/:offset', function
 	var query;
 	if (orderby[0] == "none") {
 		query = client.query({
-			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE item.amount > 0 AND item_end_date > current_timestamp AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1 offset $2)",
+			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item NATURAL JOIN sells NATURAL JOIN account WHERE account.activeaccount = true AND item.amount > 0 AND item_end_date > current_timestamp AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1 offset $2)",
 			values : [categoryId, offset]
 		});
 	} else {
 		query = client.query({
-			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item WHERE item.amount > 0 AND item_end_date > current_timestamp AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1) ORDER BY " + orderby[0] + " " + orderby[1] + " OFFSET $2",
+			text : "SELECT item.* FROM category NATURAL JOIN describe NATURAL JOIN item NATURAL JOIN sells NATURAL JOIN account WHERE account.activeaccount = true AND item.amount > 0 AND item_end_date > current_timestamp AND catid IN (SELECT subcatid FROM subcat WHERE catid = $1) ORDER BY " + orderby[0] + " " + orderby[1] + " OFFSET $2",
 			values : [categoryId, offset]
 		});
 	}
@@ -1179,7 +1207,7 @@ app.put('/SpruceServer/mySpruce/:select', function(req, res) {
 		});
 
 	} else if (req.params.select == 'sold') {
-		var query = client.query({ 
+		var query = client.query({
 			text : "SELECT item.*, invoice.invoicedate as solddate,bid_event.currentbidprice,wins.bidwonid,invoice.invoiceid FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item left outer join participates on(item.itemid=participates.itemid) left outer join bid_event on(participates.eventid=bid_event.eventid) left outer join wins on(item.itemid=wins.itemid) WHERE accpassword <> $1 AND item.itemid IN (SELECT itemid FROM account NATURAL JOIN sells WHERE accpassword = $1) ORDER BY solddate DESC",
 			values : [req.body.acc]
 		});
@@ -1241,7 +1269,7 @@ app.get('/SpruceServer/soldReciept/:invoiceid/:itemid', function(req, res) {
 	client.connect();
 	var query0 = client.query({
 		text : "select accusername,accphoto,accrating,invoice.invoicedate,saddress.*,of.itemquantity,brand,photo,model,itemname from account natural join keeps natural join invoice natural join send_to natural join saddress natural join of natural join item where invoice.invoiceid=$1 and item.itemid=$2",
-		values : [req.params.invoiceid,req.params.itemid],
+		values : [req.params.invoiceid, req.params.itemid],
 	});
 	query0.on("row", function(row, result) {
 		result.addRow(row);
@@ -1261,23 +1289,23 @@ app.get('/SpruceServer/declineBid/:itemid', function(req, res) {
 	var client = new pg.Client(conString);
 	client.connect();
 	client.query("BEGIN");
-	client.query("update bid_event set active=false from item natural join participates where item.itemid=$1 and bid_event.eventid=participates.eventid",[req.params.itemid], function(err, result) {
-			if (err) {
-				client.query("COMMIT");
-				var response = {
-					"success" : false
-				};
-				client.end();
-				res.json(response);
-			} else {
-				client.query("COMMIT");
-				var response = {
-					"success" : true
-				};
-				client.end();
-				res.json(response);
-			}
-		});
+	client.query("update bid_event set active=false from item natural join participates where item.itemid=$1 and bid_event.eventid=participates.eventid", [req.params.itemid], function(err, result) {
+		if (err) {
+			client.query("COMMIT");
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
+	});
 });
 
 //REST Get an item for the buyer
@@ -1420,18 +1448,26 @@ app.get('/SpruceServer/sellerprofile/:username', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT * FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accusername = $1",
+		text : "SELECT * FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE activeaccount = true AND  accusername = $1",
 		values : [req.params.username]
 	});
 	query.on("row", function(row, result) {
 		result.addRow(row);
 	});
 	query.on("end", function(result) {
-		var response = {
-			"sellerprofile" : result.rows
-		};
-		client.end();
-		res.json(response);
+		if (result.rows.length == 0) {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		} else {
+			var response = {
+				"sellerprofile" : result.rows
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 
 });
@@ -1759,7 +1795,7 @@ app.put('/SpruceServer/generateInvoice/cart', function(req, res) {
 			}
 		}
 	});
-	
+
 	var response = {
 		"success" : true
 	};
@@ -1842,15 +1878,15 @@ app.put('/SpruceServer/generateInvoice/auction', function(req, res) {
 	// Update the amount left for the item
 	client.query("UPDATE item SET amount = amount - (SELECT itemquantity FROM account NATURAL JOIN keeps NATURAL JOIN invoice NATURAL JOIN of NATURAL JOIN item WHERE account.accid = (SELECT accid FROM account WHERE accusername = $1) AND invoice.invoiceid = (SELECT max(invoiceid) FROM invoice) AND item.itemid = $2) WHERE item.itemid = $2", [username, itemid]);
 	// Set active state of bid event false
-	client.query("update bid_event set active=false from item natural join participates where item.itemid=$1 and bid_event.eventid=participates.eventid",[itemid]);
+	client.query("update bid_event set active=false from item natural join participates where item.itemid=$1 and bid_event.eventid=participates.eventid", [itemid]);
 	// Create winning bid
-	client.query("INSERT INTO winning_bid VALUES(DEFAULT,$1,localtimestamp)",[total]);
+	client.query("INSERT INTO winning_bid VALUES(DEFAULT,$1,localtimestamp)", [total]);
 	// Create winning bid relation with bid event
-	client.query("INSERT INTO determines VALUES((SELECT eventid FROM item NATURAL JOIN participates NATURAL JOIN bid_event where item.itemid=$1),(SELECT max(bidwonid) from winning_bid ))",[itemid]);
+	client.query("INSERT INTO determines VALUES((SELECT eventid FROM item NATURAL JOIN participates NATURAL JOIN bid_event where item.itemid=$1),(SELECT max(bidwonid) from winning_bid ))", [itemid]);
 	// Create winning bid item relation
-	client.query("INSERT INTO wins VALUES($1,(SELECT max(bidwonid) from winning_bid))",[itemid]);
+	client.query("INSERT INTO wins VALUES($1,(SELECT max(bidwonid) from winning_bid))", [itemid]);
 	// Create winning bid account relation
-	client.query("INSERT INTO placed_by VALUES((SELECT accid FROM account WHERE accusername=$1),(SELECT max(bidwonid) FROM winning_bid))",[username]);
+	client.query("INSERT INTO placed_by VALUES((SELECT accid FROM account WHERE accusername=$1),(SELECT max(bidwonid) FROM winning_bid))", [username]);
 	client.query("COMMIT;");
 
 	var response = {
@@ -1858,7 +1894,6 @@ app.put('/SpruceServer/generateInvoice/auction', function(req, res) {
 	};
 	res.json(response);
 });
-
 
 //REST for user store
 app.put('/SpruceServer/getUserStore', function(req, res) {
@@ -2322,7 +2357,7 @@ app.get('/SpruceServer/myadmintools/users', function(req, res) {
 	client.connect();
 
 	var query = client.query({
-		text : "SELECT accusername FROM account",
+		text : "SELECT accusername FROM account WHERE activeaccount = true",
 	});
 	query.on("row", function(row, result) {
 		result.addRow(row);

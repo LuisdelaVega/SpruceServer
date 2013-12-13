@@ -21,24 +21,9 @@ app.configure(function() {
 });
 
 app.use(express.bodyParser());
-
-var fs = require('fs');
 var pg = require('pg');
 
 var conString = "pg://postgres:post123@localhost:5432/SpruceDB";
-
-var allowCrossDomain = function(req, res, next) {
-	res.header('Access-Control-Allow-Origin', '*');
-	res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-	res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
-
-	// intercept OPTIONS method
-	if ('OPTIONS' == req.method) {
-		res.send(200);
-	} else {
-		next();
-	}
-};
 
 // REST Operations
 // Idea: Data is created, read, updated, or deleted through a URL that
@@ -74,25 +59,22 @@ app.put('/SpruceServer/addUserCreditCardInfo/:name/:number/:expmonth/:expyear/:c
 		text : "INSERT INTO billed VALUES((SELECT accid FROM account where accpassword = $1), (SELECT max(cid) FROM credit_card));",
 		values : [password]
 	});
-	
-	var query = client.query({	
-		text : "INSERT INTO bills_to VALUES((SELECT max(cid) FROM credit_card), (SELECT max(bid) FROM baddress));",
-	});
-	
-	client.query("COMMIT;");
-	
-	query.on("row", function(row, result) {
-		result.addRow(row);
-	});
-	query.on("end", function(result) {
-		var flag = result.rows.length > 0;
-		var response = {
-			"success" : flag
-		};
-		console.log(result);
-		console.log(flag);
-		client.end();
-		res.json(response);
+
+	client.query("INSERT INTO bills_to VALUES((SELECT max(cid) FROM credit_card), (SELECT max(bid) FROM baddress));", function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -111,20 +93,22 @@ app.put('/SpruceServer/addUserShippingAddress/:street/:city/:state/:country/:zip
 		text : "INSERT INTO saddress VALUES (DEFAULT, $1, $2, $3, $4, $5)",
 		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
 	});
-	
-	var query = client.query({	
-		text : "INSERT INTO ships_to VALUES((select accid from account where accpassword = $1), (select max(sid) from saddress))",
-		values : [password]
-	});
-	
-	client.query("COMMIT;");
-	query.on("end", function(result) {
-		var response = {
-			"success" : true
-		};
-		console.log(result);
-		client.end();
-		res.json(response);
+
+	client.query("INSERT INTO ships_to VALUES((select accid from account where accpassword = $1), (select max(sid) from saddress))", [password], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -137,17 +121,20 @@ app.put('/SpruceServer/changeUserShippingAddress/:street/:city/:state/:country/:
 	var password = req.body.password;
 	var id = req.params.id;
 	console.log(id);
-	var query = client.query({	
-		text : "UPDATE saddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where sid = $6 ",
-		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id]
-	});
-	query.on("end", function(result) {
-		var response = {
-			"success" : true
-		};
-		console.log(result);
-		client.end();
-		res.json(response);
+	client.query("UPDATE saddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where sid = $6 ", [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -160,17 +147,20 @@ app.put('/SpruceServer/changeUserBillingAddress/:street/:city/:state/:country/:z
 	var password = req.body.password;
 	var id = req.params.id.split("-");
 	console.log(id);
-	var query = client.query({	
-		text : "UPDATE baddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where bid = $6 ",
-		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id[1]]
-	});
-	query.on("end", function(result) {
-		var response = {
-			"success" : true
-		};
-		console.log(result);
-		client.end();
-		res.json(response);
+	client.query("UPDATE baddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where bid = $6 ", [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id[1]], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -181,18 +171,21 @@ app.put('/SpruceServer/editGeneralInfo/:fname/:lname/:email/:phone', function(re
 	client.connect();
 	
 	var password = req.body.password;
-	
-	var query = client.query({
-		text : "UPDATE account SET accfname = $2, acclname = $3, accemail = $4, accphonenum = $5 where accpassword = $1",
-		values : [password, req.params.fname, req.params.lname, req.params.email, req.params.phone]
-	});
-	query.on("end", function(result) {
-		var response = {
-			"success" : true
-		};
-		console.log(result);
-		client.end();
-		res.json(response);
+
+	client.query("UPDATE account SET accfname = $2, acclname = $3, accemail = $4, accphonenum = $5 where accpassword = $1", [password, req.params.fname, req.params.lname, req.params.email, req.params.phone], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -205,17 +198,20 @@ app.put('/SpruceServer/editUserPhoto/:link', function(req, res) {
 	link = "http://imgur.com/"+req.params.link+".png";
 	var password = req.body.password;
 
-	var query = client.query({	
-		text : "UPDATE account SET accphoto = $1 WHERE accpassword = $2",
-		values : [link, password]
-	});
-	query.on("end", function(result) {
-		var response = {
-			"success" : true
-		};
-		console.log(result);
-		client.end();
-		res.json(response);
+	client.query("UPDATE account SET accphoto = $1 WHERE accpassword = $2", [link, password], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -227,17 +223,20 @@ app.put('/SpruceServer/changeUserUsername/:username', function(req, res) {
 	
 	var password = req.body.password;
 
-	var query = client.query({	
-		text : "UPDATE account SET accusername = $1 WHERE accpassword = $2",
-		values : [req.params.username, password]
-	});
-	query.on("end", function(result) {
-		var response = {
-			"success" : true
-		};
-		console.log(result);
-		client.end();
-		res.json(response);
+	client.query("UPDATE account SET accusername = $1 WHERE accpassword = $2",[req.params.username,password], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -265,25 +264,22 @@ app.get('/SpruceServer/addCreditCardInfo/:username/:name/:number/:expmonth/:expy
 		text : "INSERT INTO billed VALUES((SELECT accid FROM account where accusername = $1), (SELECT max(cid) FROM credit_card));",
 		values : [req.params.username]
 	});
-	
-	var query = client.query({	
-		text : "INSERT INTO bills_to VALUES((SELECT max(cid) FROM credit_card), (SELECT max(bid) FROM baddress));",
-	});
-	
-	client.query("COMMIT;");
-	
-	query.on("row", function(row, result) {
-		result.addRow(row);
-	});
-	query.on("end", function(result) {
-		var flag = result.rows.length > 0;
-		var response = {
-			"success" : flag
-		};
-		console.log(result);
-		console.log(flag);
-		client.end();
-		res.json(response);
+
+	client.query("INSERT INTO bills_to VALUES((SELECT max(cid) FROM credit_card), (SELECT max(bid) FROM baddress));", function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -301,26 +297,22 @@ app.get('/SpruceServer/addAdminShippingAddress/:id/:street/:city/:state/:country
 		text : "INSERT INTO saddress VALUES (DEFAULT, $1, $2, $3, $4, $5)",
 		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
 	});
-	
-	var query = client.query({	
-		text : "INSERT INTO ships_to VALUES((select accid from account where accusername = $1), (select max(sid) from saddress))",
-		values : [req.params.id]
-	});
-	
-	client.query("COMMIT;");
-	
-	query.on("row", function(row, result) {
-		result.addRow(row);
-	});
-	query.on("end", function(result) {
-		var flag = result.rows.length > 0;
-		var response = {
-			"success" : flag
-		};
-		console.log(result);
-		console.log(flag);
-		client.end();
-		res.json(response);
+
+	client.query("INSERT INTO ships_to VALUES((select accid from account where accusername = $1), (select max(sid) from saddress))", [req.params.id], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -332,17 +324,20 @@ app.put('/SpruceServer/editaccphoto/:username', function(req, res) {
 	var photo = req.body.photo;
 	var username = req.params.username;
 	console.log(photo);
-	var query = client.query({	
-		text : "UPDATE account SET accphoto = $1 WHERE accusername = $2",
-		values : [photo, username]
-	});
-	query.on("end", function(result) {
-		var response = {
-			"success" : true
-		};
-		console.log(result);
-		client.end();
-		res.json(response);
+	client.query("UPDATE account SET accphoto = $1 WHERE accusername = $2", [photo, username], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -355,23 +350,21 @@ app.get('/SpruceServer/changeShippingAddressInfo/:id/:street/:city/:state/:count
 	client.connect();
 	
 	var username = req.body.username;
-	
-	var query = client.query({	
-		text : "UPDATE saddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where sid = $6 ",
-		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id[0]]
-	});
-	query.on("row", function(row, result) {
-		result.addRow(row);
-	});
-	query.on("end", function(result) {
-		var flag = result.rows.length > 0;
-		var response = {
-			"success" : flag
-		};
-		console.log(result);
-		console.log(flag);
-		client.end();
-		res.json(response);
+
+	client.query("UPDATE saddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where sid = $6 ", [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id[0]], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -384,23 +377,22 @@ app.get('/SpruceServer/changeCreditCardInfo/:username/:street/:city/:state/:coun
 	client.connect();
 	
 	var username = req.body.username;
-	
-	var query = client.query({	
-		text : "UPDATE baddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where bid = $6 ",
-		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id[1]]
-	});
-	query.on("row", function(row, result) {
-		result.addRow(row);
-	});
-	query.on("end", function(result) {
-		var flag = result.rows.length > 0;
-		var response = {
-			"success" : flag
-		};
-		console.log(result);
-		console.log(flag);
-		client.end();
-		res.json(response);
+
+	client.query("UPDATE baddress SET street = $1, city = $2, state = $3, country = $4, zip = $5 where bid = $6 ", [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip, id[1]], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -411,23 +403,22 @@ app.get('/SpruceServer/changeGeneralInfo/:username/:fname/:lname/:email/:phone',
 	client.connect();
 	
 	var username = req.body.username;
-	
-	var query = client.query({
-		text : "UPDATE account SET accfname = $2, acclname = $3, accemail = $4, accphonenum = $5 where accusername = $1",
-		values : [req.params.username, req.params.fname, req.params.lname, req.params.email, req.params.phone]
-	});
-	query.on("row", function(row, result) {
-		result.addRow(row);
-	});
-	query.on("end", function(result) {
-		var flag = result.rows.length > 0;
-		var response = {
-			"success" : flag
-		};
-		console.log(result);
-		console.log(flag);
-		client.end();
-		res.json(response);
+
+	client.query("UPDATE account SET accfname = $2, acclname = $3, accemail = $4, accphonenum = $5 where accusername = $1", [req.params.username, req.params.fname, req.params.lname, req.params.email, req.params.phone], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -438,23 +429,68 @@ app.get('/SpruceServer/changeUsername/:username/:changeto', function(req, res) {
 	client.connect();
 	
 	var username = req.body.username;
-	
-	var query = client.query({
-		text : "UPDATE account SET accusername = $2 where accusername = $1",
-		values : [req.params.username, req.params.changeto]
+
+	client.query("UPDATE account SET accusername = $2 where accusername = $1", [req.params.username, req.params.changeto], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
-	query.on("row", function(row, result) {
-		result.addRow(row);
+});
+
+app.put('/SpruceServer/defaultcreditcard/:id', function(req, res) {
+	console.log("GET " + req.url);
+	var id= req.params.id.split("-");
+	var client = new pg.Client(conString);
+	client.connect();
+	client.query("BEGIN");
+	client.query("update credit_card set defaultcard=false where cid in (select cid from account natural join billed natural join credit_card where accpassword=$1)", [req.body.password]);
+	client.query("UPDATE credit_card SET defaultcard = true where cid = $1", [id[0]], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
-	query.on("end", function(result) {
-		var flag = result.rows.length > 0;
-		var response = {
-			"success" : flag
-		};
-		console.log(result);
-		console.log(flag);
-		client.end();
-		res.json(response);
+});
+
+app.get('/SpruceServer/removecreditcard/:id', function(req, res) {
+	console.log("GET " + req.url);
+	var client = new pg.Client(conString);
+	client.connect();
+	client.query("UPDATE credit_card SET deleted_card = true where cid = $1", [req.params.id], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
@@ -645,11 +681,11 @@ app.put('/SpruceServer/signup', function(req, res) {
 		client.query("DELETE FROM guest WHERE guestid=$1;", [gid]);
 	}
 	// Create the new credit_card
-	client.query("INSERT INTO credit_card VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, true);", [cardNumber, cardholderName, card, expMonth, expYear, csc]);
+	client.query("INSERT INTO credit_card VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, true,false);", [cardNumber, cardholderName, card, expMonth, expYear, csc]);
 	// Set the relationship between he newly created account and its credit card
 	client.query("INSERT INTO billed VALUES((SELECT max(accid) FROM account), (SELECT max(cid) FROM credit_card));");
 	// Create the new saddress
-	client.query("INSERT INTO saddress VALUES(DEFAULT, $1, $2, $3, $4, $5, true);", [saddresLine, scity, sstate, scountry, szip]);
+	client.query("INSERT INTO saddress VALUES(DEFAULT, $1, $2, $3, $4, $5, true,false);", [saddresLine, scity, sstate, scountry, szip]);
 	// Create the relationship between the account and the Shipping address
 	client.query("INSERT INTO ships_to VALUES((SELECT max(accid) FROM account), (SELECT max(sid) FROM saddress));");
 	// Create the new Billing address
@@ -1599,7 +1635,7 @@ app.put('/SpruceServer/checkout', function(req, res) {
 	var password = req.body.password;
 
 	var query = client.query({
-		text : "SELECT number, cid FROM account NATURAL JOIN billed NATURAL JOIN credit_card WHERE accpassword = $1",
+		text : "SELECT number, cid FROM account NATURAL JOIN billed NATURAL JOIN credit_card WHERE accpassword = $1 AND deleted_card=false",
 		values : [password]
 	});
 	query.on("row", function(row, result) {
@@ -2103,7 +2139,7 @@ app.put('/SpruceServer/usercreditcardinfo', function(req, res) {
 	var password = req.body.password;
 
 	var query = client.query({
-		text : "SELECT credit_card.*,street,bid FROM account NATURAL JOIN billed natural join credit_card natural join bills_to natural join baddress  WHERE accpassword =$1",
+		text : "SELECT credit_card.*,street,bid FROM account NATURAL JOIN billed natural join credit_card natural join bills_to natural join baddress  WHERE accpassword =$1 AND deleted_card=false",
 		values : [password]
 	});
 	query.on("row", function(row, result) {
@@ -2206,7 +2242,7 @@ app.get('/SpruceServer/admincreditcardinfo/:username', function(req, res) {
 	var password = req.body.password;
 
 	var query = client.query({
-		text : "SELECT credit_card.*,street,bid FROM account NATURAL JOIN billed natural join credit_card natural join bills_to natural join baddress  WHERE accusername =$1",
+		text : "SELECT credit_card.*,street,bid FROM account NATURAL JOIN billed natural join credit_card natural join bills_to natural join baddress  WHERE accusername =$1 AND deleted_card=false",
 		values : [req.params.username]
 	});
 	query.on("row", function(row, result) {

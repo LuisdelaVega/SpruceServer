@@ -100,9 +100,9 @@ app.put('/SpruceServer/addUserCreditCardInfo/:name/:number/:expmonth/:expyear/:c
 	var password = req.body.password;
 	
 	client.query("BEGIN;");
-	
-	var query = client.query({	
-		text : "INSERT INTO credit_card VALUES (DEFAULT, $1, $2, $3, $4, $5, $6)",
+
+	var query = client.query({
+		text : "INSERT INTO credit_card VALUES (DEFAULT, $1, $2, $3, $4, $5, $6,false,false)",
 		values : [req.params.number, req.params.name, req.params.type, req.params.expmonth, req.params.expyear, req.params.csc]
 	});
 	
@@ -303,9 +303,9 @@ app.get('/SpruceServer/addCreditCardInfo/:username/:name/:number/:expmonth/:expy
 	var username = req.body.username;
 	
 	client.query("BEGIN;");
-	
-	var query = client.query({	
-		text : "INSERT INTO credit_card VALUES (DEFAULT, $1, $2, $3, $4, $5, $6)",
+
+	var query = client.query({
+		text : "INSERT INTO credit_card VALUES (DEFAULT, $1, $2, $3, $4, $5, $6,false,false)",
 		values : [req.params.number, req.params.name, req.params.type, req.params.expmonth, req.params.expyear, req.params.csc]
 	});
 	
@@ -1702,7 +1702,7 @@ app.put('/SpruceServer/checkout', function(req, res) {
 	query.on("end", function(result) {
 		var address = [];
 		var query1 = client.query({
-			text : "SELECT street, city, sid FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accpassword = $1",
+			text : "SELECT street, city, sid FROM account NATURAL JOIN ships_to NATURAL JOIN saddress WHERE accpassword = $1 AND activesaddress = true",
 			values : [password]
 		});
 		query1.on("row", function(row, result2) {

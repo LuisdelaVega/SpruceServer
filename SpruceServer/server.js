@@ -147,8 +147,8 @@ app.put('/SpruceServer/addUserShippingAddress/:street/:city/:state/:country/:zip
 		text : "INSERT INTO saddress VALUES (DEFAULT, $1, $2, $3, $4, $5, true, false)",
 		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
 	});
-	
-	var query = client.query("INSERT INTO ships_to VALUES((select accid from account where accpassword = $1), (select max(sid) from saddress))",[req.body.password], function(err, result) {
+
+	client.query("INSERT INTO ships_to VALUES((select accid from account where accpassword = $1), (select max(sid) from saddress))", [password], function(err, result) {
 		if (err) {
 			var response = {
 				"success" : false

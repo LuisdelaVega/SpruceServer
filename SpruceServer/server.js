@@ -141,8 +141,6 @@ app.put('/SpruceServer/addUserShippingAddress/:street/:city/:state/:country/:zip
 	client.connect();
 	
 	var password = req.body.password;
-	var id = req.params.id;
-	console.log(id);
 	client.query("BEGIN;");
 	
 	var query = client.query({	
@@ -150,19 +148,21 @@ app.put('/SpruceServer/addUserShippingAddress/:street/:city/:state/:country/:zip
 		values : [req.params.street, req.params.city, req.params.state, req.params.country, req.params.zip]
 	});
 	
-	var query = client.query({	
-		text : "INSERT INTO ships_to VALUES((select accid from account where accpassword = $1), (select max(sid) from saddress))",
-		values : [password]
-	});
-	
-	client.query("COMMIT;");
-	query.on("end", function(result) {
-		var response = {
-			"success" : true
-		};
-		console.log(result);
-		client.end();
-		res.json(response);
+	var query = client.query("INSERT INTO ships_to VALUES((select accid from account where accpassword = $1), (select max(sid) from saddress))",[req.body.password], function(err, result) {
+		if (err) {
+			var response = {
+				"success" : false
+			};
+			client.end();
+			res.json(response);
+		} else {
+			client.query("COMMIT;");
+			var response = {
+				"success" : true
+			};
+			client.end();
+			res.json(response);
+		}
 	});
 });
 
